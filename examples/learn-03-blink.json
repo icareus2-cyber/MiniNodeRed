@@ -1,0 +1,32 @@
+{
+  "description": "Lesson 3 · Timing without delay(): a Pulse train sends 1, waits, sends 0, waits, and repeats, so the board keeps running in between. The top row blinks forever; the bottom row flashes 5 times and stops. Study: Pulse train (ON/OFF time, count) and the square wave on the Oscilloscope.",
+  "flow": {
+    "name": "Lesson 3 · Blink",
+    "nodes": [
+      {"id": "blink", "type": "pulse-train", "label": "Blink 500/500 ms", "x": 45, "y": 40, "config": {"high": 500, "low": 500, "count": 0, "delay": 0}},
+      {"id": "led", "type": "digital-write", "label": "LED (GPIO 2)", "x": 240, "y": 40, "config": {"pin": 2}},
+      {"id": "blinkLog", "type": "debug", "label": "Blink", "x": 240, "y": 125, "config": {}},
+      {"id": "blinkScope", "type": "test-scope", "label": "Blink signal", "x": 435, "y": 40, "config": {"window": 5}},
+      {"id": "flash", "type": "pulse-train", "label": "5 short flashes", "x": 45, "y": 300, "config": {"high": 100, "low": 400, "count": 5, "delay": 1000}},
+      {"id": "led2", "type": "digital-write", "label": "LED 2 (GPIO 4)", "x": 240, "y": 300, "config": {"pin": 4}},
+      {"id": "flashScope", "type": "test-scope", "label": "Flash signal", "x": 435, "y": 300, "config": {"window": 5}}
+    ],
+    "edges": [
+      { "from": "blink", "to": "led" },
+      { "from": "blink", "to": "blinkLog" },
+      { "from": "blink", "to": "blinkScope" },
+      { "from": "flash", "to": "led2" },
+      { "from": "flash", "to": "flashScope" }
+    ]
+  },
+  "tests": [
+    {
+      "name": "1 LED goes on and off about every 500 ms",
+      "steps": [
+        {"op": "expect", "topic": "microflow/{{device}}/debug/blinkLog", "match": "equals", "value": "1", "timeout": 1500},
+        {"op": "expect", "topic": "microflow/{{device}}/debug/blinkLog", "match": "equals", "value": "0", "timeout": 1200},
+        {"op": "expect", "topic": "microflow/{{device}}/debug/blinkLog", "match": "equals", "value": "1", "timeout": 1200}
+      ]
+    }
+  ]
+}

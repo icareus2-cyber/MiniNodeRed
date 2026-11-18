@@ -1,0 +1,47 @@
+{
+  "description": "Lesson 8 · Remote control over MQTT: publish 'on' or 'off' to microflow/<device>/cmd/led (use the MQTT tests panel or any MQTT app). Two Compare boxes route the command, Template turns it into 1 or 0, and the board reports the new state back. Study: Radio in and Radio out (protocol MQTT), Compare, Template.",
+  "flow": {
+    "name": "Lesson 8 · MQTT remote control",
+    "nodes": [
+      {"id": "cmd", "type": "mqtt-in", "label": "LED command", "x": 45, "y": 140, "config": {"topic": "microflow/{{device}}/cmd/led"}},
+      {"id": "isOn", "type": "compare", "label": "= on", "x": 240, "y": 60, "config": {"op": "eq", "value": "on"}},
+      {"id": "one", "type": "template", "label": "→ 1", "x": 435, "y": 60, "config": {"template": "1"}},
+      {"id": "isOff", "type": "compare", "label": "= off", "x": 240, "y": 220, "config": {"op": "eq", "value": "off"}},
+      {"id": "zero", "type": "template", "label": "→ 0", "x": 435, "y": 220, "config": {"template": "0"}},
+      {"id": "led", "type": "digital-write", "label": "LED (GPIO 2)", "x": 630, "y": 140, "config": {"pin": 2}},
+      {"id": "state", "type": "mqtt-out", "label": "Report state", "x": 630, "y": 240, "config": {"topic": "microflow/{{device}}/led/state", "retain": "yes"}}
+    ],
+    "edges": [
+      { "from": "cmd", "to": "isOn" },
+      { "from": "isOn", "to": "one" },
+      { "from": "one", "to": "led" },
+      { "from": "cmd", "to": "isOff" },
+      { "from": "isOff", "to": "zero" },
+      { "from": "zero", "to": "led" },
+      { "from": "led", "to": "state" }
+    ]
+  },
+  "tests": [
+    {
+      "name": "1 'on' switches the LED on",
+      "steps": [
+        {"op": "publish", "topic": "microflow/{{device}}/cmd/led", "payload": "on"},
+        {"op": "expect", "topic": "microflow/{{device}}/led/state", "match": "equals", "value": "1", "timeout": 3000}
+      ]
+    },
+    {
+      "name": "2 'off' switches it off",
+      "steps": [
+        {"op": "publish", "topic": "microflow/{{device}}/cmd/led", "payload": "off"},
+        {"op": "expect", "topic": "microflow/{{device}}/led/state", "match": "equals", "value": "0", "timeout": 3000}
+      ]
+    },
+    {
+      "name": "3 Unknown commands are ignored",
+      "steps": [
+        {"op": "publish", "topic": "microflow/{{device}}/cmd/led", "payload": "blink"},
+        {"op": "expect-none", "topic": "microflow/{{device}}/led/state", "timeout": 500}
+      ]
+    }
+  ]
+}

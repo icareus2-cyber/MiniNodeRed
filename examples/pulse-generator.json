@@ -1,0 +1,48 @@
+{
+  "description": "Pulse train blinks GPIO 2 (onboard LED) and reports edges; an MQTT trigger fires a one-shot pulse on GPIO 14 (D5). Includes timing tests.",
+  "flow": {
+    "name": "Pulse generator test",
+    "nodes": [
+      { "id": "train", "type": "pulse-train", "label": "Pulse train 200/800 ms", "x": 45, "y": 60, "config": { "high": 200, "low": 800, "count": 0, "delay": 0 } },
+      { "id": "led", "type": "digital-write", "label": "Onboard LED (GPIO 2)", "x": 265, "y": 30, "config": { "pin": 2 } },
+      { "id": "trainOut", "type": "mqtt-out", "label": "Report train", "x": 265, "y": 140, "config": { "topic": "microflow/{{device}}/pulse/train", "retain": "no" } },
+      { "id": "trigger", "type": "mqtt-in", "label": "Pulse trigger", "x": 45, "y": 270, "config": { "topic": "microflow/{{device}}/pulse/trigger" } },
+      { "id": "pulse", "type": "pulse", "label": "One-shot pulse GPIO 14", "x": 265, "y": 270, "config": { "pin": 14, "width": 500, "active": "high", "retrigger": "restart", "fromPayload": "yes" } },
+      { "id": "state", "type": "mqtt-out", "label": "Report pulse", "x": 485, "y": 270, "config": { "topic": "microflow/{{device}}/pulse/state", "retain": "no" } }
+    ],
+    "edges": [
+      { "from": "train", "to": "led" },
+      { "from": "train", "to": "trainOut" },
+      { "from": "trigger", "to": "pulse" },
+      { "from": "pulse", "to": "state" }
+    ]
+  },
+  "tests": [
+    {
+      "name": "1 Pulse train toggles 1/0",
+      "steps": [
+        { "op": "expect", "topic": "microflow/{{device}}/pulse/train", "match": "equals", "value": "1", "timeout": 3000 },
+        { "op": "expect", "topic": "microflow/{{device}}/pulse/train", "match": "equals", "value": "0", "timeout": 1500 },
+        { "op": "expect", "topic": "microflow/{{device}}/pulse/train", "match": "equals", "value": "1", "timeout": 1500 }
+      ]
+    },
+    {
+      "name": "2 One-shot pulse lasts about 500 ms",
+      "steps": [
+        { "op": "publish", "topic": "microflow/{{device}}/pulse/trigger", "payload": "go" },
+        { "op": "expect", "topic": "microflow/{{device}}/pulse/state", "match": "equals", "value": "1", "timeout": 3000 },
+        { "op": "expect-none", "topic": "microflow/{{device}}/pulse/state", "timeout": 350 },
+        { "op": "expect", "topic": "microflow/{{device}}/pulse/state", "match": "equals", "value": "0", "timeout": 1000 }
+      ]
+    },
+    {
+      "name": "3 Width from payload (1500 ms)",
+      "steps": [
+        { "op": "publish", "topic": "microflow/{{device}}/pulse/trigger", "payload": "1500" },
+        { "op": "expect", "topic": "microflow/{{device}}/pulse/state", "match": "equals", "value": "1", "timeout": 3000 },
+        { "op": "expect-none", "topic": "microflow/{{device}}/pulse/state", "timeout": 1200 },
+        { "op": "expect", "topic": "microflow/{{device}}/pulse/state", "match": "equals", "value": "0", "timeout": 1000 }
+      ]
+    }
+  ]
+}

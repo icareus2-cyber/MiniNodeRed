@@ -1,0 +1,38 @@
+{
+  "description": "ESP-NOW loopback on ONE ESP32 board: a pulse train sends 1/0 every second through Radio out (ESP-NOW, topic loop/<device>); the board's own Radio in hears it and drives the LED on GPIO 2, the Oscilloscope and Debug. This checks the flow and topic path on the chip without a router; the over-the-air link needs a second board running the same flow. The Ping button sends a single test message.",
+  "flow": {
+    "name": "ESP-NOW loopback (one board)",
+    "nodes": [
+      {"id": "tick", "type": "pulse-train", "label": "Test signal 1 s", "x": 45, "y": 40, "config": {"high": 1000, "low": 1000, "count": 0, "delay": 500}},
+      {"id": "ping", "type": "test-button", "label": "Ping", "x": 45, "y": 170, "config": {}},
+      {"id": "tx", "type": "mqtt-out", "label": "ESP-NOW send", "x": 240, "y": 100, "config": {"protocol": "espnow", "topic": "loop/{{device}}", "channel": 1}},
+      {"id": "rx", "type": "mqtt-in", "label": "ESP-NOW receive", "x": 45, "y": 330, "config": {"protocol": "espnow", "topic": "loop/{{device}}", "channel": 1}},
+      {"id": "led", "type": "digital-write", "label": "LED (GPIO 2)", "x": 240, "y": 300, "config": {"pin": 2}},
+      {"id": "looped", "type": "debug", "label": "Looped back", "x": 240, "y": 385, "config": {}},
+      {"id": "scope", "type": "test-scope", "label": "Received signal", "x": 435, "y": 300, "config": {"window": 10}}
+    ],
+    "edges": [
+      { "from": "tick", "to": "tx" },
+      { "from": "ping", "to": "tx" },
+      { "from": "rx", "to": "led" },
+      { "from": "rx", "to": "looped" },
+      { "from": "rx", "to": "scope" }
+    ]
+  },
+  "tests": [
+    {
+      "name": "1 The test signal comes back as 1 then 0",
+      "steps": [
+        {"op": "expect", "topic": "microflow/{{device}}/debug/looped", "match": "equals", "value": "1", "timeout": 3000},
+        {"op": "expect", "topic": "microflow/{{device}}/debug/looped", "match": "equals", "value": "0", "timeout": 2500}
+      ]
+    },
+    {
+      "name": "2 A ping comes back",
+      "steps": [
+        {"op": "publish", "topic": "microflow/{{device}}/inject/ping", "payload": "ping"},
+        {"op": "expect", "topic": "microflow/{{device}}/debug/looped", "match": "equals", "value": "ping", "timeout": 3000}
+      ]
+    }
+  ]
+}

@@ -1,0 +1,56 @@
+{
+  "description": "Template turns raw values into messages: a temperature reading becomes a JSON report, the Fan switch becomes readable text, and the Doorbell push button becomes a JSON event (watch it on the Oscilloscope). Runs in ▶ Simulate; includes tests.",
+  "flow": {
+    "name": "Template messages",
+    "nodes": [
+      { "id": "temp", "type": "inject", "label": "Temperature (manual)", "x": 45, "y": 40, "config": { "payload": "23.5", "interval": 0 } },
+      { "id": "tempJson", "type": "template", "label": "Format JSON", "x": 240, "y": 40, "config": { "template": "{\"temp\":{{payload}},\"unit\":\"C\"}" } },
+      { "id": "report", "type": "mqtt-out", "label": "Publish report", "x": 435, "y": 40, "config": { "topic": "microflow/{{device}}/report", "retain": "no" } },
+      { "id": "reportLog", "type": "debug", "label": "Report", "x": 435, "y": 125, "config": {} },
+      { "id": "fan", "type": "test-switch", "label": "Fan switch", "x": 45, "y": 250, "config": {} },
+      { "id": "fanText", "type": "template", "label": "Fan text", "x": 240, "y": 250, "config": { "template": "Fan state: {{payload}} (1 = on, 0 = off)" } },
+      { "id": "fanLog", "type": "debug", "label": "Fan", "x": 435, "y": 250, "config": {} },
+      { "id": "fanLed", "type": "digital-write", "label": "Fan LED (GPIO 2)", "x": 240, "y": 335, "config": { "pin": 2 } },
+      { "id": "bell", "type": "test-button", "label": "Doorbell", "x": 45, "y": 470, "config": {} },
+      { "id": "bellJson", "type": "template", "label": "Doorbell event", "x": 240, "y": 470, "config": { "template": "{\"event\":\"doorbell\",\"pressed\":{{payload}}}" } },
+      { "id": "bellOut", "type": "mqtt-out", "label": "Publish doorbell", "x": 435, "y": 470, "config": { "topic": "microflow/{{device}}/doorbell", "retain": "no" } },
+      { "id": "bellScope", "type": "test-scope", "label": "Doorbell signal", "x": 240, "y": 560, "config": { "window": 10 } }
+    ],
+    "edges": [
+      { "from": "temp", "to": "tempJson" },
+      { "from": "tempJson", "to": "report" },
+      { "from": "tempJson", "to": "reportLog" },
+      { "from": "fan", "to": "fanText" },
+      { "from": "fanText", "to": "fanLog" },
+      { "from": "fan", "to": "fanLed" },
+      { "from": "bell", "to": "bellJson" },
+      { "from": "bellJson", "to": "bellOut" },
+      { "from": "bell", "to": "bellScope" }
+    ]
+  },
+  "tests": [
+    {
+      "name": "1 Reading becomes a JSON report",
+      "steps": [
+        { "op": "publish", "topic": "microflow/{{device}}/inject/temp", "payload": "30.5" },
+        { "op": "expect", "topic": "microflow/{{device}}/report", "match": "equals", "value": "{\"temp\":30.5,\"unit\":\"C\"}", "timeout": 3000 }
+      ]
+    },
+    {
+      "name": "2 Empty trigger uses the default reading",
+      "steps": [
+        { "op": "publish", "topic": "microflow/{{device}}/inject/temp", "payload": "" },
+        { "op": "expect", "topic": "microflow/{{device}}/report", "match": "equals", "value": "{\"temp\":23.5,\"unit\":\"C\"}", "timeout": 3000 }
+      ]
+    },
+    {
+      "name": "3 Doorbell press and release become events",
+      "steps": [
+        { "op": "publish", "topic": "microflow/{{device}}/inject/bell", "payload": "1" },
+        { "op": "expect", "topic": "microflow/{{device}}/doorbell", "match": "equals", "value": "{\"event\":\"doorbell\",\"pressed\":1}", "timeout": 3000 },
+        { "op": "publish", "topic": "microflow/{{device}}/inject/bell", "payload": "0" },
+        { "op": "expect", "topic": "microflow/{{device}}/doorbell", "match": "equals", "value": "{\"event\":\"doorbell\",\"pressed\":0}", "timeout": 3000 }
+      ]
+    }
+  ]
+}

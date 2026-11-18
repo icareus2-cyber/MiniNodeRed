@@ -1,0 +1,29 @@
+{
+  "description": "Lesson 6 · Rate limiting: a noisy signal changes 5 times a second, but Throttle lets at most one message per second through. Compare the two Oscilloscopes. Use it to avoid flooding a broker or draining a battery. Study: Throttle.",
+  "flow": {
+    "name": "Lesson 6 · Throttle",
+    "nodes": [
+      {"id": "noisy", "type": "pulse-train", "label": "Noisy signal (5 Hz)", "x": 45, "y": 40, "config": {"high": 100, "low": 100, "count": 0, "delay": 0}},
+      {"id": "rawScope", "type": "test-scope", "label": "Raw signal", "x": 240, "y": 40, "config": {"window": 5}},
+      {"id": "calm", "type": "throttle", "label": "Max 1 per second", "x": 240, "y": 200, "config": {"interval": 1000}},
+      {"id": "calmLog", "type": "debug", "label": "Throttled", "x": 435, "y": 200, "config": {}},
+      {"id": "calmScope", "type": "test-scope", "label": "Throttled signal", "x": 435, "y": 285, "config": {"window": 5}}
+    ],
+    "edges": [
+      { "from": "noisy", "to": "rawScope" },
+      { "from": "noisy", "to": "calm" },
+      { "from": "calm", "to": "calmLog" },
+      { "from": "calm", "to": "calmScope" }
+    ]
+  },
+  "tests": [
+    {
+      "name": "1 One message, then a quiet gap",
+      "steps": [
+        {"op": "expect", "topic": "microflow/{{device}}/debug/calmLog", "match": "any", "value": "", "timeout": 1500},
+        {"op": "expect-none", "topic": "microflow/{{device}}/debug/calmLog", "timeout": 700},
+        {"op": "expect", "topic": "microflow/{{device}}/debug/calmLog", "match": "any", "value": "", "timeout": 1000}
+      ]
+    }
+  ]
+}

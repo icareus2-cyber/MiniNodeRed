@@ -1,0 +1,45 @@
+{
+  "description": "Lesson 9 · Bigger flows on several tabs: the 'Controls' tab holds the inputs and the 'Outputs' tab the hardware. A Link out sends to every Link in with the same link name, on any tab; all tabs run together on one board. Study: flow tabs, Link out, Link in.",
+  "flow": {
+    "name": "Lesson 9 · Tabs and links",
+    "tabs": [{"id": "controls", "name": "Controls"}, {"id": "outputs", "name": "Outputs"}],
+    "nodes": [
+      {"id": "light", "type": "test-switch", "label": "Light switch", "x": 45, "y": 40, "config": {}, "tab": "controls"},
+      {"id": "toLight", "type": "link-out", "label": "To light", "x": 240, "y": 40, "config": {"link": "light"}, "tab": "controls"},
+      {"id": "bell", "type": "test-button", "label": "Bell button", "x": 45, "y": 200, "config": {}, "tab": "controls"},
+      {"id": "toBell", "type": "link-out", "label": "To bell", "x": 240, "y": 200, "config": {"link": "bell"}, "tab": "controls"},
+      {"id": "fromLight", "type": "link-in", "label": "From light", "x": 45, "y": 40, "config": {"link": "light"}, "tab": "outputs"},
+      {"id": "led", "type": "digital-write", "label": "LED (GPIO 2)", "x": 240, "y": 40, "config": {"pin": 2}, "tab": "outputs"},
+      {"id": "lightLog", "type": "debug", "label": "Light", "x": 240, "y": 125, "config": {}, "tab": "outputs"},
+      {"id": "fromBell", "type": "link-in", "label": "From bell", "x": 45, "y": 260, "config": {"link": "bell"}, "tab": "outputs"},
+      {"id": "buzzer", "type": "digital-write", "label": "Buzzer (GPIO 4)", "x": 240, "y": 260, "config": {"pin": 4}, "tab": "outputs"},
+      {"id": "bellLog", "type": "debug", "label": "Bell", "x": 240, "y": 345, "config": {}, "tab": "outputs"}
+    ],
+    "edges": [
+      { "from": "light", "to": "toLight" },
+      { "from": "bell", "to": "toBell" },
+      { "from": "fromLight", "to": "led" },
+      { "from": "fromLight", "to": "lightLog" },
+      { "from": "fromBell", "to": "buzzer" },
+      { "from": "fromBell", "to": "bellLog" }
+    ]
+  },
+  "tests": [
+    {
+      "name": "1 The switch reaches the other tab",
+      "steps": [
+        {"op": "publish", "topic": "microflow/{{device}}/inject/light", "payload": "1"},
+        {"op": "expect", "topic": "microflow/{{device}}/debug/lightLog", "match": "equals", "value": "1", "timeout": 3000}
+      ]
+    },
+    {
+      "name": "2 The button reaches the other tab",
+      "steps": [
+        {"op": "publish", "topic": "microflow/{{device}}/inject/bell", "payload": "1"},
+        {"op": "expect", "topic": "microflow/{{device}}/debug/bellLog", "match": "equals", "value": "1", "timeout": 3000},
+        {"op": "publish", "topic": "microflow/{{device}}/inject/bell", "payload": "0"},
+        {"op": "expect", "topic": "microflow/{{device}}/debug/bellLog", "match": "equals", "value": "0", "timeout": 3000}
+      ]
+    }
+  ]
+}

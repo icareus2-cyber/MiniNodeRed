@@ -1,0 +1,42 @@
+{
+  "description": "Lesson 2 · Digital outputs: flip the Light switch and hold the Bell button, then watch the GPIO circles, the Oscilloscope and the console. A GPIO output writes HIGH for anything except 0/false. Study: Switch, Push button, GPIO output, Oscilloscope.",
+  "flow": {
+    "name": "Lesson 2 · Switch and LED",
+    "nodes": [
+      {"id": "light", "type": "test-switch", "label": "Light switch", "x": 45, "y": 40, "config": {}},
+      {"id": "led", "type": "digital-write", "label": "LED (GPIO 2)", "x": 240, "y": 40, "config": {"pin": 2}},
+      {"id": "lightLog", "type": "debug", "label": "Light", "x": 240, "y": 125, "config": {}},
+      {"id": "lightScope", "type": "test-scope", "label": "Light signal", "x": 435, "y": 40, "config": {"window": 10}},
+      {"id": "bell", "type": "test-button", "label": "Bell button", "x": 45, "y": 300, "config": {}},
+      {"id": "buzzer", "type": "digital-write", "label": "Buzzer (GPIO 4)", "x": 240, "y": 300, "config": {"pin": 4}},
+      {"id": "bellLog", "type": "debug", "label": "Bell", "x": 240, "y": 385, "config": {}}
+    ],
+    "edges": [
+      { "from": "light", "to": "led" },
+      { "from": "light", "to": "lightLog" },
+      { "from": "light", "to": "lightScope" },
+      { "from": "bell", "to": "buzzer" },
+      { "from": "bell", "to": "bellLog" }
+    ]
+  },
+  "tests": [
+    {
+      "name": "1 Switch on, then off",
+      "steps": [
+        {"op": "publish", "topic": "microflow/{{device}}/inject/light", "payload": "1"},
+        {"op": "expect", "topic": "microflow/{{device}}/debug/lightLog", "match": "equals", "value": "1", "timeout": 3000},
+        {"op": "publish", "topic": "microflow/{{device}}/inject/light", "payload": "0"},
+        {"op": "expect", "topic": "microflow/{{device}}/debug/lightLog", "match": "equals", "value": "0", "timeout": 3000}
+      ]
+    },
+    {
+      "name": "2 Button press and release",
+      "steps": [
+        {"op": "publish", "topic": "microflow/{{device}}/inject/bell", "payload": "1"},
+        {"op": "expect", "topic": "microflow/{{device}}/debug/bellLog", "match": "equals", "value": "1", "timeout": 3000},
+        {"op": "publish", "topic": "microflow/{{device}}/inject/bell", "payload": "0"},
+        {"op": "expect", "topic": "microflow/{{device}}/debug/bellLog", "match": "equals", "value": "0", "timeout": 3000}
+      ]
+    }
+  ]
+}

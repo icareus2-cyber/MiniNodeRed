@@ -1,0 +1,31 @@
+{
+  "description": "Peripheral node: a servo that turns when you press the button. Its angle comes from a knob (potentiometer on ADC 34) through Map range (0–4095 → 0–180°), its speed is 60 °/s by default and the Speed 20 °/s inject changes it. Press GO: the servo turns to the knob's angle at that speed and then reports the angle. In the simulator, move the ADC 34 slider, then press GO. Study: Peripheral (Kind, Trigger input, parameters from inputs or defaults; the C union of parameters in Preview firmware).",
+  "flow": {
+    "name": "Peripheral · servo with a knob",
+    "nodes": [
+      {"id": "knob", "type": "analog-in", "label": "Knob", "name": "KNOB", "x": 40, "y": 40, "config": {"pin": 34, "interval": 200}},
+      {"id": "angle", "type": "scale", "label": "0–4095 → 0–180°", "name": "ANGLE", "x": 280, "y": 40, "config": {"inMin": 0, "inMax": 4095, "outMin": 0, "outMax": 180, "decimals": 0, "clamp": "yes"}},
+      {"id": "speed", "type": "inject", "label": "Speed 20 °/s", "name": "SPEED", "x": 280, "y": 170, "config": {"payload": "20", "interval": 0}},
+      {"id": "go", "type": "test-button", "label": "GO", "name": "GO", "x": 280, "y": 300, "config": {}},
+      {"id": "servo", "type": "peripheral", "label": "Servo", "name": "SERVO", "x": 540, "y": 160, "config": {"kind": "servo", "pin": 13, "trigger": "GO", "angleFrom": "ANGLE", "speedFrom": "SPEED", "speed": 60, "start": 90}},
+      {"id": "servoLog", "type": "debug", "label": "Servo at (°)", "name": "SERVO_LOG", "x": 800, "y": 160, "config": {}}
+    ],
+    "edges": [
+      {"from": "knob", "to": "angle"},
+      {"from": "angle", "to": "servo"},
+      {"from": "speed", "to": "servo"},
+      {"from": "go", "to": "servo"},
+      {"from": "servo", "to": "servoLog"}
+    ]
+  },
+  "tests": [
+    {
+      "name": "GO turns the servo to the knob's angle",
+      "steps": [
+        {"op": "publish", "topic": "microflow/{{device}}/inject/go", "payload": "1"},
+        {"op": "expect", "topic": "microflow/{{device}}/debug/servoLog", "match": "equals", "value": "0.0", "timeout": 4000},
+        {"op": "publish", "topic": "microflow/{{device}}/inject/go", "payload": "0"}
+      ]
+    }
+  ]
+}

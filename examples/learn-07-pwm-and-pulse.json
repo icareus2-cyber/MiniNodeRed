@@ -1,0 +1,49 @@
+{
+  "description": "Lesson 7 · Analog-like outputs and timed pulses: PWM out sets LED brightness (duty 0–255), so Map range turns 0–100 % into 0–255. The Chime button fires a one-shot 1-second Pulse that switches itself off. Study: PWM out, Pulse, Map range.",
+  "flow": {
+    "name": "Lesson 7 · PWM and Pulse",
+    "nodes": [
+      {"id": "bright", "type": "inject", "label": "Brightness %", "x": 45, "y": 40, "config": {"payload": "50", "interval": 0}},
+      {"id": "duty", "type": "scale", "label": "% → duty 0–255", "x": 240, "y": 40, "config": {"inMin": 0, "inMax": 100, "outMin": 0, "outMax": 255, "decimals": 0, "clamp": "yes"}},
+      {"id": "dimmer", "type": "pwm-write", "label": "Dimmer (GPIO 13)", "x": 435, "y": 40, "config": {"pin": 13}},
+      {"id": "dutyLog", "type": "debug", "label": "Duty", "x": 435, "y": 125, "config": {}},
+      {"id": "chime", "type": "test-button", "label": "Chime button", "x": 45, "y": 300, "config": {}},
+      {"id": "pulse", "type": "pulse", "label": "1 s pulse (GPIO 14)", "x": 240, "y": 300, "config": {"pin": 14, "width": 1000, "active": "high", "retrigger": "ignore", "fromPayload": "no"}},
+      {"id": "pulseLog", "type": "debug", "label": "Chime", "x": 435, "y": 300, "config": {}},
+      {"id": "pulseScope", "type": "test-scope", "label": "Chime signal", "x": 435, "y": 385, "config": {"window": 5}}
+    ],
+    "edges": [
+      { "from": "bright", "to": "duty" },
+      { "from": "duty", "to": "dimmer" },
+      { "from": "duty", "to": "dutyLog" },
+      { "from": "chime", "to": "pulse" },
+      { "from": "pulse", "to": "pulseLog" },
+      { "from": "pulse", "to": "pulseScope" }
+    ]
+  },
+  "tests": [
+    {
+      "name": "1 50 % brightness is duty 128",
+      "steps": [
+        {"op": "publish", "topic": "microflow/{{device}}/inject/bright", "payload": "50"},
+        {"op": "expect", "topic": "microflow/{{device}}/debug/dutyLog", "match": "equals", "value": "128", "timeout": 3000}
+      ]
+    },
+    {
+      "name": "2 100 % brightness is duty 255",
+      "steps": [
+        {"op": "publish", "topic": "microflow/{{device}}/inject/bright", "payload": "100"},
+        {"op": "expect", "topic": "microflow/{{device}}/debug/dutyLog", "match": "equals", "value": "255", "timeout": 3000}
+      ]
+    },
+    {
+      "name": "3 The pulse ends by itself after 1 s",
+      "steps": [
+        {"op": "publish", "topic": "microflow/{{device}}/inject/chime", "payload": "1"},
+        {"op": "expect", "topic": "microflow/{{device}}/debug/pulseLog", "match": "equals", "value": "1", "timeout": 3000},
+        {"op": "expect-none", "topic": "microflow/{{device}}/debug/pulseLog", "timeout": 800},
+        {"op": "expect", "topic": "microflow/{{device}}/debug/pulseLog", "match": "equals", "value": "0", "timeout": 700}
+      ]
+    }
+  ]
+}

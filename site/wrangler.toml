@@ -1,0 +1,8 @@
+# Cloudflare Worker in front of the MiniNodeRed server (which runs on this PC and
+# reaches Cloudflare through the "microflow" tunnel). Publish: npx wrangler@4.40.0 deploy (4.40 still runs on Node 20)
+name = "microflow-site"
+main = "worker.js"
+compatibility_date = "2026-11-01"
+# Also on <name>.<account>.workers.dev: redirects to the app, or shows maintenance.
+workers_dev = true
+routes = [{ pattern = "micrologiclink.com/*", zone_name = "micrologiclink.com" }]

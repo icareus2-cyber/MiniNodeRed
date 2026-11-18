@@ -1,0 +1,188 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Microflow · Start</title>
+    <style>
+      :root {
+        --ink: #172f27;
+        --muted: #5d6a60;
+        --line: #c9d2c8;
+        --bg: #eef2ec;
+        --card: #ffffff;
+        --accent: #225e3c;
+        --bad: #b42318;
+      }
+      @media (prefers-color-scheme: dark) {
+        :root {
+          --ink: #e6ede7;
+          --muted: #a3b0a6;
+          --line: #3a4a40;
+          --bg: #121a16;
+          --card: #1b2620;
+          --accent: #4fae79;
+          --bad: #f97066;
+        }
+      }
+      * {
+        box-sizing: border-box;
+      }
+      [hidden] {
+        display: none !important;
+      }
+      body {
+        margin: 0;
+        min-height: 100vh;
+        display: grid;
+        place-items: center;
+        background: var(--bg);
+        color: var(--ink);
+        font: 15px/1.45 system-ui, -apple-system, "Segoe UI", sans-serif;
+        padding: 16px;
+      }
+      main {
+        width: 100%;
+        max-width: 360px;
+        background: var(--card);
+        border: 1px solid var(--line);
+        border-radius: 12px;
+        padding: 28px 24px 22px;
+        box-shadow: 0 8px 28px #0000000f;
+      }
+      .brand {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        margin-bottom: 18px;
+      }
+      .brand b {
+        display: grid;
+        place-items: center;
+        width: 36px;
+        height: 36px;
+        border-radius: 9px;
+        background: var(--accent);
+        color: #fff;
+        font-size: 20px;
+      }
+      h1 {
+        font-size: 18px;
+        margin: 0;
+      }
+      label {
+        display: block;
+        font-size: 13px;
+        color: var(--muted);
+        margin: 14px 0 4px;
+      }
+      input {
+        width: 100%;
+        padding: 10px 11px;
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        background: transparent;
+        color: var(--ink);
+        font: inherit;
+      }
+      input:focus {
+        outline: 2px solid var(--accent);
+        outline-offset: 1px;
+      }
+      button {
+        width: 100%;
+        margin-top: 20px;
+        padding: 11px;
+        border: 0;
+        border-radius: 8px;
+        background: var(--accent);
+        color: #fff;
+        font: 600 15px system-ui, sans-serif;
+        cursor: pointer;
+      }
+      button:disabled {
+        opacity: 0.6;
+        cursor: wait;
+      }
+      #error {
+        min-height: 20px;
+        margin: 12px 0 0;
+        color: var(--bad);
+        font-size: 14px;
+      }
+      .hint {
+        margin: 14px 0 0;
+        color: var(--muted);
+        font-size: 13px;
+      }
+      .guest {
+        display: block;
+        margin-top: 18px;
+        padding: 10px;
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        text-align: center;
+        color: var(--accent);
+        font-weight: 600;
+        text-decoration: none;
+      }
+      .lead {
+        margin: -6px 0 4px;
+        color: var(--muted);
+        font-size: 14px;
+      }
+      .or {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        margin: 18px 0 0;
+        color: var(--muted);
+        font-size: 13px;
+      }
+      .or::before,
+      .or::after {
+        content: "";
+        flex: 1;
+        border-top: 1px solid var(--line);
+      }
+      .guest.primary {
+        background: var(--accent);
+        color: #fff;
+        border-color: var(--accent);
+      }
+      button.plain {
+        background: transparent;
+        color: var(--accent);
+        border: 1px solid var(--line);
+        margin-top: 10px;
+      }
+      .guest:hover {
+        border-color: var(--accent);
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <div class="brand"><b>μ</b><h1>Welcome to Microflow</h1></div>
+      <p class="lead">Log in to save on the server and use this PC's boards, or continue as a guest.</p>
+      <div id="already" hidden>
+        <p class="lead">You are logged in as <b id="who"></b>.</p>
+        <a class="guest primary" id="continue" href="/">Open Microflow</a>
+        <button id="logout" type="button" class="plain">Log out / use another account</button>
+      </div>
+      <form id="login">
+        <label for="name">User name</label>
+        <input id="name" name="username" autocomplete="username" required autofocus />
+        <label for="password">Password</label>
+        <input id="password" name="password" type="password" autocomplete="current-password" required />
+        <button id="go" type="submit">Log in</button>
+        <p id="error" role="alert"></p>
+      </form>
+      <p class="hint">Accounts are made by the admin. Forgot your password? Ask the admin to set a new one.</p>
+      <div class="or"><span>or</span></div>
+      <a class="guest" id="guest" href="/?guest">Continue as a guest</a>
+      <p class="hint">Guests design, compile and download firmware; their flows stay in their own browser.</p>
+    </main>
+    <script src="login.js"></script>
+  </body>
+</html>

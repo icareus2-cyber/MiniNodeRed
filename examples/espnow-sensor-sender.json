@@ -1,0 +1,28 @@
+{
+  "description": "ESP-NOW sample 1 of 3 · Sensor board (any ESP32): reads a knob on ADC 34 every 2 s, turns it into %, and broadcasts it with Radio out (protocol ESP-NOW, topic sensor/<device>/level) to every ESP32 nearby; no router or broker. Pair it with the ESP-NOW display (receiver) and/or the ESP-NOW ↔ MQTT gateway sample. ▶ on Test reading sends 2048 (50 %).",
+  "flow": {
+    "name": "ESP-NOW sensor (sender)",
+    "nodes": [
+      {"id": "knob", "type": "analog-in", "label": "Knob (ADC 34)", "x": 45, "y": 40, "config": {"pin": 34, "interval": 2000}},
+      {"id": "test", "type": "inject", "label": "Test reading", "x": 45, "y": 170, "config": {"payload": "2048", "interval": 0}},
+      {"id": "percent", "type": "scale", "label": "0–4095 → %", "x": 240, "y": 100, "config": {"inMin": 0, "inMax": 4095, "outMin": 0, "outMax": 100, "decimals": 0, "clamp": "yes"}},
+      {"id": "send", "type": "mqtt-out", "label": "Broadcast level", "x": 435, "y": 100, "config": {"protocol": "espnow", "topic": "sensor/{{device}}/level", "channel": 1}},
+      {"id": "sentLog", "type": "debug", "label": "Sent", "x": 435, "y": 185, "config": {}}
+    ],
+    "edges": [
+      { "from": "knob", "to": "percent" },
+      { "from": "test", "to": "percent" },
+      { "from": "percent", "to": "send" },
+      { "from": "send", "to": "sentLog" }
+    ]
+  },
+  "tests": [
+    {
+      "name": "1 A test reading is broadcast as 50 %",
+      "steps": [
+        {"op": "publish", "topic": "microflow/{{device}}/inject/test", "payload": "2048"},
+        {"op": "expect", "topic": "microflow/{{device}}/debug/sentLog", "match": "equals", "value": "50", "timeout": 3000}
+      ]
+    }
+  ]
+}

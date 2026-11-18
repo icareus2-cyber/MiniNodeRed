@@ -1,0 +1,44 @@
+{
+  "description": "ESP-NOW sample 2 of 3 · Display board (LILYGO TTGO T-Display): Radio in (protocol ESP-NOW, topic sensor/+/level) hears every sensor board nearby and shows the level on the screen and as a bar; above 80 % it shows an alarm and sends alarm/level back over ESP-NOW. No router or broker. ▶ on Test signal simulates a sender (also in ▶ Simulate).",
+  "flow": {
+    "name": "ESP-NOW display (receiver)",
+    "nodes": [
+      {"id": "title", "type": "display", "label": "Title", "x": 630, "y": 20, "config": {"row": 0, "size": "2", "color": "cyan", "label": "", "initial": "ESP-NOW sensors"}},
+      {"id": "hear", "type": "mqtt-in", "label": "Hear sensors", "x": 45, "y": 120, "config": {"protocol": "espnow", "topic": "sensor/+/level", "channel": 1}},
+      {"id": "show", "type": "display", "label": "Show level", "x": 240, "y": 120, "config": {"row": 2, "size": "3", "color": "green", "label": "Level ", "initial": "Level --"}},
+      {"id": "levelLog", "type": "debug", "label": "Level", "x": 240, "y": 210, "config": {}},
+      {"id": "high", "type": "threshold", "label": "Above 80 %", "x": 435, "y": 120, "config": {"value": 80}},
+      {"id": "alarmText", "type": "display", "label": "Alarm", "x": 630, "y": 120, "config": {"row": 5, "size": "2", "color": "red", "label": "ALARM ", "initial": ""}},
+      {"id": "alarmOut", "type": "mqtt-out", "label": "Send alarm", "x": 630, "y": 210, "config": {"protocol": "espnow", "topic": "alarm/level", "channel": 1}},
+      {"id": "alarmLog", "type": "debug", "label": "Alarm sent", "x": 630, "y": 295, "config": {}},
+      {"id": "test", "type": "inject", "label": "Test signal", "x": 45, "y": 330, "config": {"payload": "85", "interval": 0}},
+      {"id": "testOut", "type": "mqtt-out", "label": "Pretend sensor", "x": 240, "y": 330, "config": {"protocol": "espnow", "topic": "sensor/test/level", "channel": 1}}
+    ],
+    "edges": [
+      { "from": "hear", "to": "show" },
+      { "from": "hear", "to": "levelLog" },
+      { "from": "hear", "to": "high" },
+      { "from": "high", "to": "alarmText" },
+      { "from": "alarmText", "to": "alarmOut" },
+      { "from": "alarmOut", "to": "alarmLog" },
+      { "from": "test", "to": "testOut" }
+    ]
+  },
+  "tests": [
+    {
+      "name": "1 A sensor reading is shown",
+      "steps": [
+        {"op": "publish", "topic": "microflow/{{device}}/inject/test", "payload": "42"},
+        {"op": "expect", "topic": "microflow/{{device}}/debug/levelLog", "match": "equals", "value": "42", "timeout": 3000},
+        {"op": "expect-none", "topic": "microflow/{{device}}/debug/alarmLog", "timeout": 500}
+      ]
+    },
+    {
+      "name": "2 Above 80 % raises the alarm",
+      "steps": [
+        {"op": "publish", "topic": "microflow/{{device}}/inject/test", "payload": "85"},
+        {"op": "expect", "topic": "microflow/{{device}}/debug/alarmLog", "match": "equals", "value": "85", "timeout": 3000}
+      ]
+    }
+  ]
+}

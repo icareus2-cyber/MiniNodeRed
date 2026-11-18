@@ -1,0 +1,26 @@
+{
+  "description": "C/C++ node with JSON: the Reading inject sends {\"temp\": 21.5, \"room\": \"lab\"}. The Convert node reads fields with jsonHas, jsonNumber and jsonText and sends a new JSON object built with Json().add(…): {\"room\":\"lab\",\"celsius\":21.5,\"fahrenheit\":70.7,\"hot\":false}. Send other JSON from the inject's MQTT topic to try it. C/C++ code runs on the board only: in ▶ Simulate the node passes the payload through.",
+  "flow": {
+    "name": "Arduino JSON",
+    "nodes": [
+      {"id": "reading", "type": "inject", "label": "Reading (JSON)", "name": "READING", "x": 45, "y": 60, "config": {"payload": "{\"temp\": 21.5, \"room\": \"lab\"}", "interval": 0}},
+      {"id": "convert", "type": "arduino", "label": "Convert", "name": "CONVERT", "x": 300, "y": 60, "config": {"vars": "", "setup": "", "loop": "", "message": "// value is JSON such as {\"temp\": 21.5, \"room\": \"lab\"}\nif (!jsonHas(value, \"temp\")) return;      // not a reading: ignore it\ndouble c = jsonNumber(value, \"temp\");\nsend(Json()\n  .add(\"room\", jsonText(value, \"room\"))\n  .add(\"celsius\", c)\n  .add(\"fahrenheit\", c * 9 / 5 + 32, 1)  // 1 decimal place\n  .add(\"hot\", c > 30));"}},
+      {"id": "result", "type": "debug", "label": "Result (JSON)", "name": "RESULT", "x": 560, "y": 60, "config": {}}
+    ],
+    "edges": [
+      { "from": "reading", "to": "convert" },
+      { "from": "convert", "to": "result" }
+    ]
+  },
+  "tests": [
+    {
+      "name": "1 Converts a JSON reading (on the board)",
+      "steps": [
+        {"op": "publish", "topic": "microflow/{{device}}/inject/reading", "payload": "{\"temp\": 35, \"room\": \"attic\"}"},
+        {"op": "expect", "topic": "microflow/{{device}}/debug/result", "match": "equals", "value": "{\"room\":\"attic\",\"celsius\":35,\"fahrenheit\":95,\"hot\":true}", "timeout": 3000},
+        {"op": "publish", "topic": "microflow/{{device}}/inject/reading", "payload": "no json"},
+        {"op": "expect-none", "topic": "microflow/{{device}}/debug/result", "timeout": 1000}
+      ]
+    }
+  ]
+}

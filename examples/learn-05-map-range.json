@@ -1,0 +1,44 @@
+{
+  "description": "Lesson 5 · Scaling: Map range converts one range into another, e.g. the ESP32 ADC (0–4095) into 0–100 %. Press ▶ on 'Test value' (2048 → 50 %) or move the ADC slider in VIRTUAL PINS while simulating. For ESP8266 set the Analog sample pin to 17 (A0) and Input max to 1023. Study: Analog sample, Map range, Template.",
+  "flow": {
+    "name": "Lesson 5 · Map range",
+    "nodes": [
+      {"id": "pot", "type": "analog-in", "label": "Knob (ADC 34)", "x": 45, "y": 40, "config": {"pin": 34, "interval": 1000}},
+      {"id": "test", "type": "inject", "label": "Test value", "x": 45, "y": 170, "config": {"payload": "2048", "interval": 0}},
+      {"id": "percent", "type": "scale", "label": "0–4095 → 0–100 %", "x": 240, "y": 100, "config": {"inMin": 0, "inMax": 4095, "outMin": 0, "outMax": 100, "decimals": 0, "clamp": "yes"}},
+      {"id": "levelText", "type": "template", "label": "Level text", "x": 435, "y": 100, "config": {"template": "Level {{payload}} %"}},
+      {"id": "levelLog", "type": "debug", "label": "Level", "x": 630, "y": 100, "config": {}},
+      {"id": "levelScope", "type": "test-scope", "label": "Level %", "x": 435, "y": 200, "config": {"window": 30}}
+    ],
+    "edges": [
+      { "from": "pot", "to": "percent" },
+      { "from": "test", "to": "percent" },
+      { "from": "percent", "to": "levelText" },
+      { "from": "levelText", "to": "levelLog" },
+      { "from": "percent", "to": "levelScope" }
+    ]
+  },
+  "tests": [
+    {
+      "name": "1 Half scale is 50 %",
+      "steps": [
+        {"op": "publish", "topic": "microflow/{{device}}/inject/test", "payload": "2048"},
+        {"op": "expect", "topic": "microflow/{{device}}/debug/levelLog", "match": "equals", "value": "Level 50 %", "timeout": 3000}
+      ]
+    },
+    {
+      "name": "2 Full scale is 100 %",
+      "steps": [
+        {"op": "publish", "topic": "microflow/{{device}}/inject/test", "payload": "4095"},
+        {"op": "expect", "topic": "microflow/{{device}}/debug/levelLog", "match": "equals", "value": "Level 100 %", "timeout": 3000}
+      ]
+    },
+    {
+      "name": "3 Out-of-range input is clamped",
+      "steps": [
+        {"op": "publish", "topic": "microflow/{{device}}/inject/test", "payload": "5000"},
+        {"op": "expect", "topic": "microflow/{{device}}/debug/levelLog", "match": "equals", "value": "Level 100 %", "timeout": 3000}
+      ]
+    }
+  ]
+}

@@ -1,0 +1,41 @@
+{
+  "description": "Node-RED language: every wire carries a JSON message like Node-RED's msg. The Reading inject sends {\"payload\":{\"temp\":31.5},\"topic\":\"READING\",\"room\":\"lab\"} (payload from its settings, topic and room from its Message box). Check temp reads msg.payload with jsonNumber and replaces the payload with hot or ok; topic and room travel on. Alarm combines two inputs as typed C++ variables: bool DOOR and String CHECK, and lights the LED when the door is open and it is hot. Debug nodes show complete messages. Change the language in Settings ⚙. C/C++ code runs on the board only: in ▶ Simulate those nodes pass messages through.",
+  "flow": {
+    "name": "Node-RED messages",
+    "language": "nodered",
+    "nodes": [
+      {"id": "reading", "type": "inject", "label": "Reading", "name": "READING", "msg": "{\"topic\":\"READING\",\"room\":\"lab\"}", "x": 45, "y": 60, "config": {"payload": "{\"temp\": 31.5}", "interval": 0}},
+      {"id": "check", "type": "arduino", "label": "Check temp", "name": "CHECK", "msg": "{}", "x": 300, "y": 60, "config": {"vars": "", "setup": "", "loop": "", "message": "// value = msg.payload, msg = the whole message\ndouble t = jsonNumber(value, \"temp\");\nsend(t > 30 ? \"hot\" : \"ok\");   // new payload; topic and room travel on"}},
+      {"id": "whole", "type": "debug", "label": "Whole message", "name": "WHOLE", "msg": "{}", "x": 560, "y": 40, "config": {"show": "msg"}},
+      {"id": "door", "type": "test-switch", "label": "Door open", "name": "DOOR", "msg": "{\"topic\":\"DOOR\"}", "x": 45, "y": 260, "config": {}},
+      {"id": "alarm", "type": "arduino", "label": "Alarm", "name": "ALARM", "msg": "{\"topic\":\"alarm\"}", "x": 300, "y": 240, "config": {"vars": "", "setup": "", "loop": "", "message": "// DOOR (bool) and CHECK (String) are the inputs wired into this node.\nsend(DOOR && CHECK == \"hot\" ? 1 : 0);"}},
+      {"id": "led", "type": "digital-write", "label": "LED (GPIO 2)", "name": "OUT2", "msg": "{}", "x": 560, "y": 200, "config": {"pin": 2}},
+      {"id": "alarmLog", "type": "debug", "label": "Alarm message", "name": "ALARM_LOG", "msg": "{}", "x": 560, "y": 290, "config": {"show": "msg"}}
+    ],
+    "edges": [
+      { "from": "reading", "to": "check" },
+      { "from": "check", "to": "whole" },
+      { "from": "door", "to": "alarm" },
+      { "from": "check", "to": "alarm" },
+      { "from": "alarm", "to": "led" },
+      { "from": "alarm", "to": "alarmLog" }
+    ]
+  },
+  "tests": [
+    {
+      "name": "1 A hot reading keeps its topic and room (on the board)",
+      "steps": [
+        {"op": "publish", "topic": "microflow/{{device}}/inject/reading", "payload": "{\"temp\": 35}"},
+        {"op": "expect", "topic": "microflow/{{device}}/debug/whole", "match": "equals", "value": "{\"payload\":\"hot\",\"topic\":\"READING\",\"room\":\"lab\"}", "timeout": 3000}
+      ]
+    },
+    {
+      "name": "2 Door open while hot raises the alarm (on the board)",
+      "steps": [
+        {"op": "publish", "topic": "microflow/{{device}}/inject/reading", "payload": "{\"temp\": 35}"},
+        {"op": "publish", "topic": "microflow/{{device}}/inject/door", "payload": "1"},
+        {"op": "expect", "topic": "microflow/{{device}}/debug/alarmLog", "match": "equals", "value": "{\"payload\":1,\"topic\":\"alarm\"}", "timeout": 3000}
+      ]
+    }
+  ]
+}

@@ -1,0 +1,47 @@
+{
+  "description": "For the LILYGO TTGO T-Display (choose that board). Title at boot, both buttons (GPIO 0 and 35) shown live, an analog input (GPIO 36) in %, and text sent over MQTT on the 1.14\" LCD. Tests check the MQTT text path and the terminal's lcd command.",
+  "flow": {
+    "name": "TTGO T-Display demo",
+    "nodes": [
+      { "id": "title", "type": "display", "label": "Title", "x": 485, "y": 20, "config": { "row": 0, "size": "3", "color": "cyan", "label": "", "initial": "Microflow" } },
+      { "id": "btn1", "type": "gpio-watch", "label": "Button 1 (GPIO 0)", "x": 45, "y": 120, "config": { "pin": 0, "pull": "pullup", "debounce": 50 } },
+      { "id": "btn1Lcd", "type": "display", "label": "Show button 1", "x": 265, "y": 120, "config": { "row": 2, "size": "2", "color": "yellow", "label": "Button 1: ", "initial": "Button 1: -" } },
+      { "id": "btn1Out", "type": "mqtt-out", "label": "Report button 1", "x": 485, "y": 120, "config": { "topic": "microflow/{{device}}/buttons/1", "retain": "no" } },
+      { "id": "btn2", "type": "gpio-watch", "label": "Button 2 (GPIO 35)", "x": 45, "y": 230, "config": { "pin": 35, "pull": "none", "debounce": 50 } },
+      { "id": "btn2Lcd", "type": "display", "label": "Show button 2", "x": 265, "y": 230, "config": { "row": 3, "size": "2", "color": "yellow", "label": "Button 2: ", "initial": "Button 2: -" } },
+      { "id": "btn2Out", "type": "mqtt-out", "label": "Report button 2", "x": 485, "y": 230, "config": { "topic": "microflow/{{device}}/buttons/2", "retain": "no" } },
+      { "id": "adc", "type": "analog-in", "label": "Analog GPIO 36", "x": 45, "y": 340, "config": { "pin": 36, "interval": 1000 } },
+      { "id": "pct", "type": "scale", "label": "ADC → %", "x": 265, "y": 340, "config": { "inMin": 0, "inMax": 4095, "outMin": 0, "outMax": 100, "decimals": 0, "clamp": "yes" } },
+      { "id": "adcLcd", "type": "display", "label": "Show analog", "x": 485, "y": 340, "config": { "row": 4, "size": "2", "color": "green", "label": "GPIO36: ", "initial": "" } },
+      { "id": "text", "type": "mqtt-in", "label": "Text from MQTT", "x": 45, "y": 450, "config": { "topic": "microflow/{{device}}/display/text" } },
+      { "id": "textLcd", "type": "display", "label": "Show text", "x": 265, "y": 450, "config": { "row": 5, "size": "2", "color": "white", "label": "", "initial": "Send text via MQTT" } },
+      { "id": "echo", "type": "mqtt-out", "label": "Echo shown text", "x": 485, "y": 450, "config": { "topic": "microflow/{{device}}/display/echo", "retain": "no" } }
+    ],
+    "edges": [
+      { "from": "btn1", "to": "btn1Lcd" },
+      { "from": "btn1Lcd", "to": "btn1Out" },
+      { "from": "btn2", "to": "btn2Lcd" },
+      { "from": "btn2Lcd", "to": "btn2Out" },
+      { "from": "adc", "to": "pct" },
+      { "from": "pct", "to": "adcLcd" },
+      { "from": "text", "to": "textLcd" },
+      { "from": "textLcd", "to": "echo" }
+    ]
+  },
+  "tests": [
+    {
+      "name": "1 MQTT text reaches the display",
+      "steps": [
+        { "op": "publish", "topic": "microflow/{{device}}/display/text", "payload": "Hello T-Display" },
+        { "op": "expect", "topic": "microflow/{{device}}/display/echo", "match": "equals", "value": "Hello T-Display", "timeout": 5000 }
+      ]
+    },
+    {
+      "name": "2 Terminal writes a display row",
+      "steps": [
+        { "op": "publish", "topic": "microflow/{{device}}/cmd", "payload": "lcd 6 test row" },
+        { "op": "expect", "topic": "microflow/{{device}}/cmd/reply", "match": "equals", "value": "row 6 = test row", "timeout": 5000 }
+      ]
+    }
+  ]
+}

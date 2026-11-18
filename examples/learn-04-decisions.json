@@ -1,0 +1,51 @@
+{
+  "description": "Lesson 4 · Decisions: a box can stop a message. Threshold only passes numbers ≥ 30, so press ▶ on Temperature with 22 (nothing happens), then change its payload to 31. Compare checks the door message: only 'open' gets through. Study: Threshold, Compare, Template, Radio in/out (MQTT).",
+  "flow": {
+    "name": "Lesson 4 · Decisions",
+    "nodes": [
+      {"id": "temp", "type": "inject", "label": "Temperature", "x": 45, "y": 40, "config": {"payload": "22", "interval": 0}},
+      {"id": "hot", "type": "threshold", "label": "Hot? (≥ 30)", "x": 240, "y": 40, "config": {"value": 30}},
+      {"id": "alarmText", "type": "template", "label": "Alarm text", "x": 435, "y": 40, "config": {"template": "Too hot: {{payload}} °C"}},
+      {"id": "alarm", "type": "mqtt-out", "label": "Publish alarm", "x": 630, "y": 40, "config": {"topic": "microflow/{{device}}/alarm", "retain": "no"}},
+      {"id": "alarmLog", "type": "debug", "label": "Alarm", "x": 630, "y": 125, "config": {}},
+      {"id": "door", "type": "mqtt-in", "label": "Door sensor", "x": 45, "y": 300, "config": {"topic": "microflow/{{device}}/door"}},
+      {"id": "isOpen", "type": "compare", "label": "Is it open?", "x": 240, "y": 300, "config": {"op": "eq", "value": "open"}},
+      {"id": "doorText", "type": "template", "label": "Door text", "x": 435, "y": 300, "config": {"template": "Door opened!"}},
+      {"id": "doorLog", "type": "debug", "label": "Door", "x": 630, "y": 300, "config": {}}
+    ],
+    "edges": [
+      { "from": "temp", "to": "hot" },
+      { "from": "hot", "to": "alarmText" },
+      { "from": "alarmText", "to": "alarm" },
+      { "from": "alarmText", "to": "alarmLog" },
+      { "from": "door", "to": "isOpen" },
+      { "from": "isOpen", "to": "doorText" },
+      { "from": "doorText", "to": "doorLog" }
+    ]
+  },
+  "tests": [
+    {
+      "name": "1 Below the threshold: no alarm",
+      "steps": [
+        {"op": "publish", "topic": "microflow/{{device}}/inject/temp", "payload": "25"},
+        {"op": "expect-none", "topic": "microflow/{{device}}/alarm", "timeout": 500}
+      ]
+    },
+    {
+      "name": "2 Above the threshold: alarm",
+      "steps": [
+        {"op": "publish", "topic": "microflow/{{device}}/inject/temp", "payload": "31"},
+        {"op": "expect", "topic": "microflow/{{device}}/alarm", "match": "equals", "value": "Too hot: 31 °C", "timeout": 3000}
+      ]
+    },
+    {
+      "name": "3 Only 'open' passes Compare",
+      "steps": [
+        {"op": "publish", "topic": "microflow/{{device}}/door", "payload": "closed"},
+        {"op": "expect-none", "topic": "microflow/{{device}}/debug/doorLog", "timeout": 500},
+        {"op": "publish", "topic": "microflow/{{device}}/door", "payload": "open"},
+        {"op": "expect", "topic": "microflow/{{device}}/debug/doorLog", "match": "equals", "value": "Door opened!", "timeout": 3000}
+      ]
+    }
+  ]
+}

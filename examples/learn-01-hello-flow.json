@@ -1,0 +1,31 @@
+{
+  "description": "Lesson 1 · The basics: a flow is boxes joined by wires, and a message (the payload) travels from left to right. Press ▶ on 'Say hello' and watch the debug console; 'Heartbeat' repeats by itself every 2 s. Study: Inject (manual vs. repeat interval) and Debug.",
+  "flow": {
+    "name": "Lesson 1 · Hello, flow",
+    "nodes": [
+      {"id": "hello", "type": "inject", "label": "Say hello", "x": 45, "y": 40, "config": {"payload": "Hello, world!", "interval": 0}},
+      {"id": "helloLog", "type": "debug", "label": "Message", "x": 240, "y": 40, "config": {}},
+      {"id": "beat", "type": "inject", "label": "Heartbeat", "x": 45, "y": 170, "config": {"payload": "tick", "interval": 2000}},
+      {"id": "beatLog", "type": "debug", "label": "Heartbeat", "x": 240, "y": 170, "config": {}}
+    ],
+    "edges": [
+      { "from": "hello", "to": "helloLog" },
+      { "from": "beat", "to": "beatLog" }
+    ]
+  },
+  "tests": [
+    {
+      "name": "1 Pressing ▶ sends the payload",
+      "steps": [
+        {"op": "publish", "topic": "microflow/{{device}}/inject/hello", "payload": ""},
+        {"op": "expect", "topic": "microflow/{{device}}/debug/helloLog", "match": "equals", "value": "Hello, world!", "timeout": 3000}
+      ]
+    },
+    {
+      "name": "2 Heartbeat fires by itself",
+      "steps": [
+        {"op": "expect", "topic": "microflow/{{device}}/debug/beatLog", "match": "equals", "value": "tick", "timeout": 3000}
+      ]
+    }
+  ]
+}

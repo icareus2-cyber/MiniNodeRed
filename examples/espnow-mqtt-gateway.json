@@ -1,0 +1,39 @@
+{
+  "description": "ESP-NOW sample 3 of 3 · Gateway board (any ESP32 on your WiFi): bridges the two protocols. Sensor levels heard over ESP-NOW (sensor/+/level) are published to the MQTT broker (microflow/<device>/gateway/level), so this PC, phones and the Devices list can see them; commands sent to microflow/<device>/gateway/light over MQTT are broadcast over ESP-NOW as home/light (e.g. to Lesson 10 boards). ESP-NOW boards then need no WiFi of their own; set their ESP-NOW channel to your router's channel.",
+  "flow": {
+    "name": "ESP-NOW ↔ MQTT gateway",
+    "nodes": [
+      {"id": "fromRadio", "type": "mqtt-in", "label": "Hear sensors (ESP-NOW)", "x": 45, "y": 40, "config": {"protocol": "espnow", "topic": "sensor/+/level", "channel": 1}},
+      {"id": "toBroker", "type": "mqtt-out", "label": "Publish level (MQTT)", "x": 260, "y": 40, "config": {"protocol": "mqtt", "topic": "microflow/{{device}}/gateway/level", "retain": "yes"}},
+      {"id": "levelLog", "type": "debug", "label": "Forwarded level", "x": 260, "y": 125, "config": {}},
+      {"id": "fromBroker", "type": "mqtt-in", "label": "Light command (MQTT)", "x": 45, "y": 260, "config": {"protocol": "mqtt", "topic": "microflow/{{device}}/gateway/light"}},
+      {"id": "toRadio", "type": "mqtt-out", "label": "Send light (ESP-NOW)", "x": 260, "y": 260, "config": {"protocol": "espnow", "topic": "home/light", "channel": 1}},
+      {"id": "lightLog", "type": "debug", "label": "Forwarded command", "x": 260, "y": 345, "config": {}},
+      {"id": "test", "type": "inject", "label": "Test sensor", "x": 45, "y": 450, "config": {"payload": "64", "interval": 0}},
+      {"id": "testOut", "type": "mqtt-out", "label": "Pretend sensor (ESP-NOW)", "x": 260, "y": 450, "config": {"protocol": "espnow", "topic": "sensor/test/level", "channel": 1}}
+    ],
+    "edges": [
+      { "from": "fromRadio", "to": "toBroker" },
+      { "from": "toBroker", "to": "levelLog" },
+      { "from": "fromBroker", "to": "toRadio" },
+      { "from": "toRadio", "to": "lightLog" },
+      { "from": "test", "to": "testOut" }
+    ]
+  },
+  "tests": [
+    {
+      "name": "1 An ESP-NOW reading reaches the broker",
+      "steps": [
+        {"op": "publish", "topic": "microflow/{{device}}/inject/test", "payload": "64"},
+        {"op": "expect", "topic": "microflow/{{device}}/gateway/level", "match": "equals", "value": "64", "timeout": 3000}
+      ]
+    },
+    {
+      "name": "2 An MQTT command goes out over ESP-NOW",
+      "steps": [
+        {"op": "publish", "topic": "microflow/{{device}}/gateway/light", "payload": "1"},
+        {"op": "expect", "topic": "microflow/{{device}}/debug/lightLog", "match": "equals", "value": "1", "timeout": 3000}
+      ]
+    }
+  ]
+}

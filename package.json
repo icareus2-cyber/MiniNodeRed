@@ -1,0 +1,31 @@
+{
+  "name": "mininodered-2",
+  "version": "2.0.0",
+  "main": "server.js",
+  "scripts": {
+    "test": "node --test",
+    "test:compile": "node --test test/compile.test.js",
+    "start": "node server.js",
+    "user": "node tools/user.js"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "description": "Visual embedded flow studio for ESP8266 and ESP32 with MQTT testing",
+  "dependencies": {
+    "better-sqlite3": "^11.10.0",
+    "express": "^4.22.3",
+    "mqtt": "^5.16.0",
+    "serialport": "^12.0.0"
+  },
+  "devDependencies": {
+    "aedes": "^0.51.3",
+    "prettier": "^3.9.9"
+  },
+  "overrides": {
+    "uuid": "11.1.1"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

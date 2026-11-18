@@ -1,0 +1,37 @@
+{
+  "description": "Web in/out and Terminal nodes on one ESP32. The board serves http://<board IP>/ (values, input boxes, terminal) and a JSON API: POST 1 or 0 to /api/led to switch the LED (GPIO 2), GET /api for all values. Typing 'led 1' or 'say hello' in any terminal (USB, test terminal, web page) does the same. In the simulator the API is at /sim/api on this PC.",
+  "flow": {
+    "name": "Web API + terminal",
+    "nodes": [
+      { "id": "webLed", "type": "web-in", "label": "Web: set LED", "x": 45, "y": 30, "config": { "name": "led" } },
+      { "id": "termLed", "type": "terminal", "label": "Terminal: led 1|0", "x": 45, "y": 140, "config": { "command": "led" } },
+      { "id": "led", "type": "digital-write", "label": "LED (GPIO 2)", "x": 300, "y": 30, "config": { "pin": 2 } },
+      { "id": "ledState", "type": "web-out", "label": "Web: LED state", "x": 300, "y": 140, "config": { "name": "led" } },
+      { "id": "light", "type": "analog-in", "label": "Light sensor (GPIO 34)", "x": 45, "y": 260, "config": { "pin": 34, "interval": 1000 } },
+      { "id": "lightOut", "type": "web-out", "label": "Web: light", "x": 300, "y": 260, "config": { "name": "light" } },
+      { "id": "say", "type": "terminal", "label": "Terminal: say <text>", "x": 45, "y": 380, "config": { "command": "say" } },
+      { "id": "msg", "type": "web-in", "label": "Web: message", "x": 45, "y": 490, "config": { "name": "message" } },
+      { "id": "last", "type": "web-out", "label": "Web: last message", "x": 300, "y": 430, "config": { "name": "message" } },
+      { "id": "log", "type": "debug", "label": "Message", "x": 555, "y": 430, "config": {} }
+    ],
+    "edges": [
+      { "from": "webLed", "to": "led" },
+      { "from": "webLed", "to": "ledState" },
+      { "from": "termLed", "to": "led" },
+      { "from": "termLed", "to": "ledState" },
+      { "from": "light", "to": "lightOut" },
+      { "from": "say", "to": "last" },
+      { "from": "msg", "to": "last" },
+      { "from": "last", "to": "log" }
+    ]
+  },
+  "tests": [
+    {
+      "name": "1 Terminal command reaches the flow",
+      "steps": [
+        { "op": "publish", "topic": "microflow/{{device}}/cmd", "payload": "say hello" },
+        { "op": "expect", "topic": "microflow/{{device}}/debug/log", "match": "equals", "value": "hello", "timeout": 3000 }
+      ]
+    }
+  ]
+}

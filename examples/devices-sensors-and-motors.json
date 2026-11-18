@@ -1,0 +1,41 @@
+{
+  "description": "Input and Output devices: a greenhouse. A DS18B20 temperature sensor opens a vent flap (servo) further the warmer it gets (20 °C closed, 30 °C fully open); a voltmeter watches the 12 V battery through a 30k / 7.5k divider; an MPU-6050 reports its tilt. Press Turn 90° to turn the turntable (stepper motor) by a quarter turn: it reports where it stopped. In the simulator the sensors give made-up readings (move the ADC 34 slider for the battery). Study: Input device (Device, Sensor, pins), Output device (Servo: turn speed; Stepper: Input value, Top speed, Acceleration).",
+  "flow": {
+    "name": "Devices · greenhouse",
+    "nodes": [
+      {"id": "temp", "type": "input-device", "label": "Air temperature", "name": "AIR", "x": 40, "y": 40, "config": {"device": "temp", "sensor": "ds18b20", "pin": 4, "interval": 2000, "decimals": 1}},
+      {"id": "vent", "type": "scale", "label": "20–30 °C → 0–90°", "name": "VENT_ANGLE", "x": 300, "y": 40, "config": {"inMin": 20, "inMax": 30, "outMin": 0, "outMax": 90, "decimals": 0, "clamp": "yes"}},
+      {"id": "flap", "type": "output-device", "label": "Vent flap", "name": "FLAP", "x": 560, "y": 40, "config": {"device": "servo", "pin": 13, "speed": 30, "start": 0}},
+      {"id": "flapLog", "type": "debug", "label": "Vent at (°)", "name": "FLAP_LOG", "x": 820, "y": 40, "config": {}},
+      {"id": "tempLog", "type": "debug", "label": "Temperature", "name": "TEMP_LOG", "x": 300, "y": 150, "config": {}},
+      {"id": "battery", "type": "input-device", "label": "Battery", "name": "BATTERY", "x": 40, "y": 260, "config": {"device": "volt", "pin": 34, "r1": 30, "r2": 7.5, "interval": 5000}},
+      {"id": "batteryLog", "type": "debug", "label": "Battery (V)", "name": "BATTERY_LOG", "x": 300, "y": 260, "config": {}},
+      {"id": "tilt", "type": "input-device", "label": "Tilt", "name": "TILT", "x": 40, "y": 370, "config": {"device": "gyro", "gyroOut": "pitch", "interval": 1000, "decimals": 1}},
+      {"id": "tiltLog", "type": "debug", "label": "Tilt (°)", "name": "TILT_LOG", "x": 300, "y": 370, "config": {}},
+      {"id": "turn", "type": "inject", "label": "Turn 90°", "name": "TURN", "x": 40, "y": 480, "config": {"payload": "90", "interval": 0}},
+      {"id": "table", "type": "output-device", "label": "Turntable", "name": "TABLE", "x": 300, "y": 480, "config": {"device": "stepper", "pin": 25, "dirPin": 26, "enPin": 27, "idle": "release", "input": "angle", "rpm": 30, "accel": 60}},
+      {"id": "tableLog", "type": "debug", "label": "Turntable at (°)", "name": "TABLE_LOG", "x": 560, "y": 480, "config": {}}
+    ],
+    "edges": [
+      {"from": "temp", "to": "vent"},
+      {"from": "temp", "to": "tempLog"},
+      {"from": "vent", "to": "flap"},
+      {"from": "flap", "to": "flapLog"},
+      {"from": "battery", "to": "batteryLog"},
+      {"from": "tilt", "to": "tiltLog"},
+      {"from": "turn", "to": "table"},
+      {"from": "table", "to": "tableLog"}
+    ]
+  },
+  "tests": [
+    {
+      "name": "Turntable turns a quarter and reports it",
+      "steps": [
+        {"op": "publish", "topic": "microflow/{{device}}/inject/turn", "payload": "90"},
+        {"op": "expect", "topic": "microflow/{{device}}/debug/tableLog", "match": "equals", "value": "90.0", "timeout": 4000},
+        {"op": "publish", "topic": "microflow/{{device}}/inject/turn", "payload": "-90"},
+        {"op": "expect", "topic": "microflow/{{device}}/debug/tableLog", "match": "equals", "value": "0.0", "timeout": 4000}
+      ]
+    }
+  ]
+}

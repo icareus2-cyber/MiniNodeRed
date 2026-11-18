@@ -1,0 +1,54 @@
+{
+  "description": "C/C++ node: two-input AND gates written in C/C++. Top: wire push buttons from GPIO 4 (D2 on a D1 mini) and GPIO 5 (D1) to GND. Two GPIO input (change) nodes read them and are wired into the AND gate node, where they are bool variables BTN_A and BTN_B; it sends 1 while both are pressed, else 0, to the LED on GPIO 2. A second C/C++ node counts how often that happened with its own variable. Bottom: Switch A and Switch B are wired into one C/C++ node: send(SW_A && SW_B ? 1 : 0). C/C++ nodes do the logic only; reading and driving pins is done by the GPIO nodes. The code runs on the board only (a debug build flips the switches over MQTT); in ▶ Simulate the C/C++ nodes just pass values through.",
+  "flow": {
+    "name": "Arduino AND gate",
+    "nodes": [
+      {"id": "btnA", "type": "gpio-watch", "label": "Button A (GPIO 4)", "name": "BTN_A", "x": 45, "y": 60, "config": {"pin": 4, "pull": "pullup"}},
+      {"id": "btnB", "type": "gpio-watch", "label": "Button B (GPIO 5)", "name": "BTN_B", "x": 45, "y": 200, "config": {"pin": 5, "pull": "pullup"}},
+      {"id": "gate", "type": "arduino", "label": "AND gate", "x": 260, "y": 140, "config": {"vars": "bool pressedA = false, pressedB = false; // until a button reports\nint last = -1; // result sent last (-1 = nothing yet)", "setup": "", "message": "// BTN_A and BTN_B are the GPIO inputs wired into this node (bool: true = released,\n// as a pressed button pulls its pin to GND). They send only when they change, so\n// remember each button from its own changes; `from` says which one sent.\nif (from == \"BTN_A\") pressedA = !BTN_A;\nif (from == \"BTN_B\") pressedB = !BTN_B;\nint out = (pressedA && pressedB) ? 1 : 0;\nif (out != last) { // send only when the result changes\n  last = out;\n  send(out);\n}", "loop": ""}, "name": "GATE"},
+      {"id": "led", "type": "digital-write", "label": "LED (GPIO 2)", "x": 480, "y": 40, "config": {"pin": 2}, "name": "OUT2"},
+      {"id": "gateLog", "type": "debug", "label": "A AND B", "x": 480, "y": 130, "config": {}, "name": "GATE_LOG"},
+      {"id": "count", "type": "arduino", "label": "Count", "x": 480, "y": 230, "config": {"vars": "int count = 0; // its own count: nothing to do with the gate's variables", "setup": "", "message": "// GATE and PRETEND are the inputs wired into this node; `from` says which one sent.\nif (value == \"1\") send(++count);", "loop": ""}, "name": "COUNT"},
+      {"id": "countLog", "type": "debug", "label": "Times both pressed", "x": 700, "y": 230, "config": {}, "name": "COUNT_LOG"},
+      {"id": "test", "type": "inject", "label": "Pretend both pressed", "x": 260, "y": 330, "config": {"payload": "1", "interval": 0}, "name": "PRETEND"},
+      {"id": "swA", "type": "test-switch", "label": "Switch A", "name": "SW_A", "x": 45, "y": 460, "config": {}},
+      {"id": "swB", "type": "test-switch", "label": "Switch B", "name": "SW_B", "x": 45, "y": 560, "config": {}},
+      {"id": "and2", "type": "arduino", "label": "A AND B (inputs)", "name": "AND2", "x": 300, "y": 500, "config": {"vars": "", "setup": "", "loop": "", "message": "// SW_A and SW_B are the switches wired into this node: bool variables holding each one's latest value.\nsend(SW_A && SW_B ? 1 : 0);"}},
+      {"id": "and2Log", "type": "debug", "label": "Switch A AND B", "name": "AND2_LOG", "x": 540, "y": 500, "config": {}}
+    ],
+    "edges": [
+      { "from": "btnA", "to": "gate" },
+      { "from": "btnB", "to": "gate" },
+      { "from": "gate", "to": "led" },
+      { "from": "gate", "to": "gateLog" },
+      { "from": "gate", "to": "count" },
+      { "from": "count", "to": "countLog" },
+      { "from": "test", "to": "count" },
+      { "from": "swA", "to": "and2" },
+      { "from": "swB", "to": "and2" },
+      { "from": "and2", "to": "and2Log" }
+    ]
+  },
+  "tests": [
+    {
+      "name": "1 Count adds up (on the board)",
+      "steps": [
+        {"op": "publish", "topic": "microflow/{{device}}/inject/test", "payload": "1"},
+        {"op": "expect", "topic": "microflow/{{device}}/debug/countLog", "match": "equals", "value": "1", "timeout": 3000},
+        {"op": "publish", "topic": "microflow/{{device}}/inject/test", "payload": "1"},
+        {"op": "expect", "topic": "microflow/{{device}}/debug/countLog", "match": "equals", "value": "2", "timeout": 3000}
+      ]
+    },
+    {
+      "name": "2 Both switches on gives 1 (on the board)",
+      "steps": [
+        {"op": "publish", "topic": "microflow/{{device}}/inject/swA", "payload": "1"},
+        {"op": "expect", "topic": "microflow/{{device}}/debug/and2Log", "match": "equals", "value": "0", "timeout": 3000},
+        {"op": "publish", "topic": "microflow/{{device}}/inject/swB", "payload": "1"},
+        {"op": "expect", "topic": "microflow/{{device}}/debug/and2Log", "match": "equals", "value": "1", "timeout": 3000},
+        {"op": "publish", "topic": "microflow/{{device}}/inject/swA", "payload": "0"},
+        {"op": "expect", "topic": "microflow/{{device}}/debug/and2Log", "match": "equals", "value": "0", "timeout": 3000}
+      ]
+    }
+  ]
+}

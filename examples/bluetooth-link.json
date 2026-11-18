@@ -1,0 +1,23 @@
+{
+  "description": "Bluetooth LE link between two ESP32 boards, no WiFi or broker needed. Upload this same flow to both boards: pressing BOOT (GPIO 0) on one board lights the LED (GPIO 2) on the other. Change the link name to pair a different set of boards.",
+  "flow": {
+    "name": "Bluetooth link (two boards)",
+    "nodes": [
+      { "id": "button", "type": "gpio-watch", "label": "BOOT button (GPIO 0)", "x": 45, "y": 40, "config": { "pin": 0, "pull": "pullup", "debounce": 30 } },
+      { "id": "send", "type": "ble-out", "label": "Send to other board", "x": 285, "y": 40, "config": { "link": "pair1" } },
+      { "id": "sent", "type": "debug", "label": "Sent", "x": 285, "y": 150, "config": {} },
+      { "id": "receive", "type": "ble-in", "label": "From other board", "x": 45, "y": 280, "config": { "link": "pair1" } },
+      { "id": "invert", "type": "scale", "label": "Pressed (0) → LED on (1)", "x": 285, "y": 280, "config": { "inMin": 0, "inMax": 1, "outMin": 1, "outMax": 0, "decimals": 0, "clamp": "yes" } },
+      { "id": "led", "type": "digital-write", "label": "LED (GPIO 2)", "x": 525, "y": 280, "config": { "pin": 2 } },
+      { "id": "got", "type": "debug", "label": "Received", "x": 285, "y": 390, "config": {} }
+    ],
+    "edges": [
+      { "from": "button", "to": "send" },
+      { "from": "button", "to": "sent" },
+      { "from": "receive", "to": "invert" },
+      { "from": "invert", "to": "led" },
+      { "from": "receive", "to": "got" }
+    ]
+  },
+  "tests": []
+}

@@ -1,0 +1,39 @@
+{
+  "description": "Lesson 10 · Boards talking without a router: Radio out and Radio in with protocol ESP-NOW. Upload the same flow to two ESP32 boards: flipping the switch or pressing the button on one lights the LED on both, with no WiFi router or broker. In ▶ Simulate the board hears its own messages. Study: Radio in/out, the Protocol setting, ESP-NOW topics.",
+  "flow": {
+    "name": "Lesson 10 · ESP-NOW link",
+    "nodes": [
+      {"id": "light", "type": "test-switch", "label": "Light switch", "x": 45, "y": 40, "config": {}},
+      {"id": "send", "type": "mqtt-out", "label": "Send light", "x": 240, "y": 40, "config": {"protocol": "espnow", "topic": "home/light", "channel": 1}},
+      {"id": "hear", "type": "mqtt-in", "label": "Hear light", "x": 45, "y": 220, "config": {"protocol": "espnow", "topic": "home/#", "channel": 1}},
+      {"id": "led", "type": "digital-write", "label": "LED (GPIO 2)", "x": 240, "y": 220, "config": {"pin": 2}},
+      {"id": "lightLog", "type": "debug", "label": "Heard", "x": 240, "y": 305, "config": {}},
+      {"id": "bell", "type": "test-button", "label": "Bell button", "x": 45, "y": 420, "config": {}},
+      {"id": "sendBell", "type": "mqtt-out", "label": "Send bell", "x": 240, "y": 420, "config": {"protocol": "espnow", "topic": "home/bell", "channel": 1}}
+    ],
+    "edges": [
+      { "from": "light", "to": "send" },
+      { "from": "hear", "to": "led" },
+      { "from": "hear", "to": "lightLog" },
+      { "from": "bell", "to": "sendBell" }
+    ]
+  },
+  "tests": [
+    {
+      "name": "1 The switch's ESP-NOW message comes back to Radio in",
+      "steps": [
+        {"op": "publish", "topic": "microflow/{{device}}/inject/light", "payload": "1"},
+        {"op": "expect", "topic": "microflow/{{device}}/debug/lightLog", "match": "equals", "value": "1", "timeout": 3000},
+        {"op": "publish", "topic": "microflow/{{device}}/inject/light", "payload": "0"},
+        {"op": "expect", "topic": "microflow/{{device}}/debug/lightLog", "match": "equals", "value": "0", "timeout": 3000}
+      ]
+    },
+    {
+      "name": "2 home/# also hears the bell",
+      "steps": [
+        {"op": "publish", "topic": "microflow/{{device}}/inject/bell", "payload": "1"},
+        {"op": "expect", "topic": "microflow/{{device}}/debug/lightLog", "match": "equals", "value": "1", "timeout": 3000}
+      ]
+    }
+  ]
+}

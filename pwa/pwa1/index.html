@@ -1,0 +1,199 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no" />
+<meta name="theme-color" content="#1d2420" />
+<title>Microflow PWA</title>
+<link rel="manifest" href="manifest.webmanifest" />
+<link rel="icon" href="icon.svg" />
+<style>
+  :root { --bg:#1d2420; --panel:#2a332e; --key:#3b4640; --key2:#4a5650; --ink:#eef3ee; --muted:#9fb1a6; --accent:#c3e7aa; }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body { margin: 0; height: 100%; background: var(--bg); color: var(--ink); font: 16px system-ui, sans-serif; }
+  body { display: flex; flex-direction: column; padding: max(10px, env(safe-area-inset-top)) 10px max(10px, env(safe-area-inset-bottom)); gap: 10px; }
+  header { display: flex; align-items: center; gap: 8px; }
+  header h1 { font-size: 16px; margin: 0; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  #dot { width: 10px; height: 10px; border-radius: 50%; background: #b5463a; flex: none; }
+  #dot.on { background: #4cc46f; }
+  #state { font-size: 12px; color: var(--muted); }
+  header button { background: none; border: 1px solid #4a5650; color: var(--muted); border-radius: 8px; padding: 4px 8px; }
+  #screen { flex: 1; min-height: 120px; background: #10140f; border: 2px solid #3b4640; border-radius: 12px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; padding: 12px; text-align: center; overflow: hidden; }
+  #screen img { max-width: 100%; max-height: 45vh; object-fit: contain; }
+  #screen img[hidden] { display: none; }
+  #text { font: 22px ui-monospace, monospace; color: var(--accent); white-space: pre-wrap; word-break: break-word; }
+  #typed { font: 13px ui-monospace, monospace; color: var(--muted); min-height: 16px; }
+  #keys { display: flex; flex-direction: column; gap: 6px; }
+  .row { display: flex; gap: 6px; justify-content: center; }
+  .key { flex: 1 1 0; min-width: 0; height: 52px; border: none; border-radius: 9px; background: var(--key); color: var(--ink); font: 600 18px system-ui, sans-serif; box-shadow: 0 3px 0 #141a16; user-select: none; touch-action: manipulation; }
+  .key.wide { flex-grow: 2.4; font-size: 15px; }
+  .key:active, .key.down { background: var(--accent); color: #1d2420; transform: translateY(2px); box-shadow: 0 1px 0 #141a16; }
+  dialog { background: var(--panel); color: var(--ink); border: 1px solid #4a5650; border-radius: 12px; width: min(420px, 92vw); }
+  dialog label { display: block; margin: 8px 0; font-size: 13px; color: var(--muted); }
+  dialog input { width: 100%; padding: 8px; border-radius: 6px; border: 1px solid #4a5650; background: #1d2420; color: var(--ink); }
+  dialog menu { display: flex; gap: 8px; justify-content: flex-end; padding: 0; }
+  dialog button { padding: 8px 14px; border-radius: 8px; border: none; background: var(--key2); color: var(--ink); }
+  dialog button.go { background: var(--accent); color: #1d2420; font-weight: 700; }
+</style>
+</head>
+<body>
+<header>
+  <span id="dot" title="Connection"></span><h1 id="title">Microflow</h1><span id="state">connecting…</span>
+  <button id="setup" aria-label="Connection settings">⚙</button>
+</header>
+<div id="screen" aria-live="polite"><img id="image" alt="" hidden /><div id="text">—</div></div>
+<div id="typed"></div>
+<div id="keys"></div>
+<dialog id="dlg"><form method="dialog">
+  <b>Connection</b>
+  <label>Broker WebSocket URL<input id="fBroker" placeholder="wss://broker.example.com:8084/mqtt" /></label>
+  <label>Device ID (the board's)<input id="fDevice" /></label>
+  <label>Username (if the broker needs one)<input id="fUser" autocomplete="username" /></label>
+  <label>Password<input id="fPass" type="password" autocomplete="current-password" /></label>
+  <menu><button value="cancel">Cancel</button><button class="go" value="ok">Connect</button></menu>
+</form></dialog>
+<script>
+"use strict";
+const $ = (id) => document.getElementById(id);
+const WIDE = /^(Space|Enter|Back|Esc|OK|Cancel|Shift|Tab)$/;
+let cfg, link = null, typed = "";
+const store = {
+  get: (k) => { try { return localStorage.getItem("mfpwa." + k) || ""; } catch { return ""; } },
+  set: (k, v) => { try { localStorage.setItem("mfpwa." + k, v); } catch {} },
+};
+function setState(on, text) { $("dot").classList.toggle("on", on); $("state").textContent = text; }
+// Something to show: {"text": …, "image": name or URL / data URI}, or plain text.
+function show(raw) {
+  let m;
+  try { m = JSON.parse(raw); } catch { m = { text: String(raw) }; }
+  if (typeof m !== "object" || m === null) m = { text: String(m) };
+  if ("text" in m) $("text").textContent = String(m.text);
+  if ("image" in m) {
+    const src = m.image ? cfg.images?.[m.image] || (/^(data:image\/|https?:)/.test(m.image) ? m.image : "") : "";
+    $("image").hidden = !src;
+    if (src) $("image").src = src;
+  }
+}
+function key(k) {
+  if (k === "Back") typed = typed.slice(0, -1);
+  else if (k === "Space") typed += " ";
+  else if (k === "Enter" || k === "Esc") typed = "";
+  else if (k.length === 1) typed = (typed + k).slice(-40);
+  $("typed").textContent = typed;
+  if (navigator.vibrate) navigator.vibrate(15);
+  link?.send(JSON.stringify({ key: k }));
+}
+function buildKeys() {
+  const box = $("keys");
+  box.replaceChildren();
+  for (const row of cfg.keys) {
+    const r = document.createElement("div");
+    r.className = "row";
+    for (const k of row) {
+      const b = document.createElement("button");
+      b.className = "key" + (WIDE.test(k) || k.length > 2 ? " wide" : "");
+      b.textContent = k === "Space" ? "␣" : k === "Back" ? "⌫" : k === "Enter" ? "⏎" : k;
+      b.title = k;
+      b.addEventListener("pointerdown", (e) => { e.preventDefault(); b.classList.add("down"); key(k); });
+      for (const ev of ["pointerup", "pointerleave", "pointercancel"]) b.addEventListener(ev, () => b.classList.remove("down"));
+      r.append(b);
+    }
+    box.append(r);
+  }
+}
+// Served by Microflow: talk through the IDE (simulator or the board it monitors).
+// The page's folder (/pwa/<folder>/): the node's variable name.
+const FOLDER = decodeURIComponent(location.pathname.split("/").filter(Boolean).slice(-1)[0] || "");
+let nodeId = "";
+async function viaMicroflow() {
+  nodeId = cfg.node;
+  const r = await fetch("/api/pwa/state?node=" + encodeURIComponent(cfg.node) + "&folder=" + encodeURIComponent(FOLDER), { cache: "no-store" });
+  if (!r.ok) throw Error("no Microflow");
+  const s = await r.json();
+  const via = { host: "simulator", device: "board" };
+  const state = (s) => {
+    if (s.node) nodeId = s.node; // the running node (it may have a new id)
+    if (s.problem) { setState(false, "Not in the running flow"); show(JSON.stringify({ text: s.problem })); return; }
+    if (s.payload) show(s.payload);
+    setState(s.running, s.running ? "via Microflow · " + (via[s.mode] || s.mode) : "Microflow: start ▶ Simulate");
+  };
+  state(s);
+  const again = () => fetch("/api/pwa/state?node=" + encodeURIComponent(cfg.node) + "&folder=" + encodeURIComponent(FOLDER), { cache: "no-store" }).then((r) => r.json()).then(state).catch(() => {});
+  const events = new EventSource("/api/events");
+  events.onmessage = (e) => {
+    const ev = JSON.parse(e.data);
+    if (ev.kind === "pwa" && ev.node === nodeId) show(ev.payload);
+    if (ev.kind === "status") setTimeout(again, 300); // started, stopped, restarted
+  };
+  events.onerror = () => setState(false, "Microflow not reachable");
+  return {
+    send: (json) =>
+      fetch("/api/pwa/key", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ node: cfg.node, folder: FOLDER, payload: json }) })
+        .then((r) => r.ok || r.json().then((e) => { setState(false, "Key not sent"); show(JSON.stringify({ text: e.error || "not sent" })); })),
+  };
+}
+// Published on a static host: MQTT over WebSocket straight to the broker.
+function loadMqtt() {
+  return new Promise((ok, fail) => {
+    if (window.mqtt) return ok();
+    const s = document.createElement("script");
+    s.src = "https://unpkg.com/mqtt@5.10.1/dist/mqtt.min.js";
+    s.onload = ok; s.onerror = () => fail(Error("mqtt.js did not load (offline?)"));
+    document.head.append(s);
+  });
+}
+async function viaBroker() {
+  const url = store.get("broker") || cfg.broker;
+  const device = store.get("device") || cfg.device;
+  if (!url || !device) { $("dlg").showModal(); throw Error("set the broker and the Device ID"); }
+  if (location.protocol === "https:" && url.startsWith("ws:")) setState(false, "https page: use a wss:// broker URL");
+  await loadMqtt();
+  const t = (dir) => "microflow/" + device + "/pwa/" + cfg.node + "/" + dir;
+  const client = mqtt.connect(url, { username: store.get("user") || undefined, password: store.get("pass") || undefined, reconnectPeriod: 3000, clean: true });
+  client.on("connect", () => { setState(true, "broker · " + device); client.subscribe(t("out")); });
+  client.on("reconnect", () => setState(false, "reconnecting…"));
+  client.on("error", (e) => setState(false, e.message));
+  client.on("message", (topic, payload) => show(payload.toString()));
+  return { send: (json) => client.connected ? client.publish(t("in"), json) : setState(false, "not connected") };
+}
+async function start() {
+  link = null;
+  try { link = await viaMicroflow(); }
+  catch { try { link = await viaBroker(); } catch (e) { setState(false, e.message); } }
+}
+$("setup").onclick = () => {
+  $("fBroker").value = store.get("broker") || cfg.broker; $("fDevice").value = store.get("device") || cfg.device;
+  $("fUser").value = store.get("user"); $("fPass").value = store.get("pass");
+  $("dlg").showModal();
+};
+$("dlg").addEventListener("close", () => {
+  if ($("dlg").returnValue !== "ok") return;
+  store.set("broker", $("fBroker").value.trim()); store.set("device", $("fDevice").value.trim());
+  store.set("user", $("fUser").value.trim()); store.set("pass", $("fPass").value);
+  location.reload();
+});
+document.addEventListener("keydown", (e) => {
+  if ($("dlg").open) return;
+  const k = e.key === " " ? "Space" : e.key === "Backspace" ? "Back" : e.key === "Escape" ? "Esc" : e.key.length === 1 ? e.key.toUpperCase() : e.key;
+  if (cfg.keys.flat().includes(k)) { e.preventDefault(); key(k); }
+});
+// Set up by QR code: …/#setup=<base64 JSON {broker, device}> (from Microflow).
+try {
+  const m = /#setup=([A-Za-z0-9_-]+)/.exec(location.hash);
+  if (m) {
+    const s = JSON.parse(atob(m[1].replace(/-/g, "+").replace(/_/g, "/")));
+    if (s.broker) store.set("broker", s.broker);
+    if (s.device) store.set("device", s.device);
+    history.replaceState(null, "", location.pathname + location.search);
+  }
+} catch {}
+fetch("pwa.json", { cache: "no-store" }).then((r) => r.json()).then((c) => {
+  cfg = c;
+  document.title = $("title").textContent = c.title;
+  buildKeys();
+  start();
+});
+if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js").catch(() => {});
+</script>
+</body>
+</html>

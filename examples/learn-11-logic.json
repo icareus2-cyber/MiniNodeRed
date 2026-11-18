@@ -1,0 +1,96 @@
+{
+  "description": "Lesson 11 · Logic: one Logic node does gates, flip-flops and timers (choose its Function). Flip the Door and Window switches: AND is 1 when both are open, XOR when exactly one is. The SR latch turns the alarm LED on when the door opens and keeps it on until the window switch resets it. The on-delay timer says 1 only once the door has been open for 1 s. Press the Button: the toggle flip-flop switches the light on and off, the pulse timer beeps for 0.5 s. Study: Logic (Function, Set/Reset inputs by variable name, Time).",
+  "flow": {
+    "name": "Lesson 11 · Logic",
+    "nodes": [
+      {"id": "door", "type": "test-switch", "label": "Door switch", "name": "DOOR", "x": 45, "y": 40, "config": {}},
+      {"id": "window", "type": "test-switch", "label": "Window switch", "name": "WINDOW", "x": 45, "y": 200, "config": {}},
+      {"id": "button", "type": "test-button", "label": "Button", "name": "BUTTON", "x": 45, "y": 420, "config": {}},
+      {"id": "and", "type": "logic", "label": "Both open", "name": "BOTH", "x": 260, "y": 20, "config": {"fn": "and"}},
+      {"id": "xor", "type": "logic", "label": "Exactly one open", "name": "ONE", "x": 260, "y": 110, "config": {"fn": "xor"}},
+      {"id": "latch", "type": "logic", "label": "Alarm latch", "name": "ALARM", "x": 260, "y": 200, "config": {"fn": "sr", "set": "DOOR", "reset": "WINDOW", "priority": "reset"}},
+      {"id": "ton", "type": "logic", "label": "Door open 1 s", "name": "DOOR_LONG", "x": 260, "y": 300, "config": {"fn": "ton", "time": 1000}},
+      {"id": "toggle", "type": "logic", "label": "Light on/off", "name": "LIGHT", "x": 260, "y": 400, "config": {"fn": "toggle"}},
+      {"id": "tp", "type": "logic", "label": "Beep 0.5 s", "name": "BEEP", "x": 260, "y": 490, "config": {"fn": "tp", "time": 500}},
+      {"id": "andLog", "type": "debug", "label": "AND", "x": 480, "y": 20, "config": {}},
+      {"id": "xorLog", "type": "debug", "label": "XOR", "x": 480, "y": 110, "config": {}},
+      {"id": "led", "type": "digital-write", "label": "Alarm LED (GPIO 2)", "x": 480, "y": 180, "config": {"pin": 2}},
+      {"id": "latchLog", "type": "debug", "label": "Latch", "x": 680, "y": 220, "config": {}},
+      {"id": "tonLog", "type": "debug", "label": "On-delay", "x": 480, "y": 300, "config": {}},
+      {"id": "toggleLog", "type": "debug", "label": "Toggle", "x": 480, "y": 400, "config": {}},
+      {"id": "tpLog", "type": "debug", "label": "Pulse", "x": 480, "y": 490, "config": {}}
+    ],
+    "edges": [
+      { "from": "door", "to": "and" },
+      { "from": "window", "to": "and" },
+      { "from": "door", "to": "xor" },
+      { "from": "window", "to": "xor" },
+      { "from": "door", "to": "latch" },
+      { "from": "window", "to": "latch" },
+      { "from": "door", "to": "ton" },
+      { "from": "button", "to": "toggle" },
+      { "from": "button", "to": "tp" },
+      { "from": "and", "to": "andLog" },
+      { "from": "xor", "to": "xorLog" },
+      { "from": "latch", "to": "led" },
+      { "from": "latch", "to": "latchLog" },
+      { "from": "ton", "to": "tonLog" },
+      { "from": "toggle", "to": "toggleLog" },
+      { "from": "tp", "to": "tpLog" }
+    ]
+  },
+  "tests": [
+    {
+      "name": "1 AND and XOR follow both switches",
+      "steps": [
+        {"op": "publish", "topic": "microflow/{{device}}/inject/door", "payload": "1"},
+        {"op": "expect", "topic": "microflow/{{device}}/debug/andLog", "match": "equals", "value": "0", "timeout": 3000},
+        {"op": "expect", "topic": "microflow/{{device}}/debug/xorLog", "match": "equals", "value": "1", "timeout": 3000},
+        {"op": "publish", "topic": "microflow/{{device}}/inject/window", "payload": "1"},
+        {"op": "expect", "topic": "microflow/{{device}}/debug/andLog", "match": "equals", "value": "1", "timeout": 3000},
+        {"op": "expect", "topic": "microflow/{{device}}/debug/xorLog", "match": "equals", "value": "0", "timeout": 3000},
+        {"op": "publish", "topic": "microflow/{{device}}/inject/door", "payload": "0"},
+        {"op": "expect", "topic": "microflow/{{device}}/debug/andLog", "match": "equals", "value": "0", "timeout": 3000},
+        {"op": "expect", "topic": "microflow/{{device}}/debug/xorLog", "match": "equals", "value": "1", "timeout": 3000},
+        {"op": "publish", "topic": "microflow/{{device}}/inject/window", "payload": "0"},
+        {"op": "expect", "topic": "microflow/{{device}}/debug/xorLog", "match": "equals", "value": "0", "timeout": 3000}
+      ]
+    },
+    {
+      "name": "2 The latch holds until reset",
+      "steps": [
+        {"op": "publish", "topic": "microflow/{{device}}/inject/door", "payload": "1"},
+        {"op": "expect", "topic": "microflow/{{device}}/debug/latchLog", "match": "equals", "value": "1", "timeout": 3000},
+        {"op": "publish", "topic": "microflow/{{device}}/inject/door", "payload": "0"},
+        {"op": "expect-none", "topic": "microflow/{{device}}/debug/latchLog", "timeout": 500},
+        {"op": "publish", "topic": "microflow/{{device}}/inject/window", "payload": "1"},
+        {"op": "expect", "topic": "microflow/{{device}}/debug/latchLog", "match": "equals", "value": "0", "timeout": 3000},
+        {"op": "publish", "topic": "microflow/{{device}}/inject/window", "payload": "0"},
+        {"op": "expect-none", "topic": "microflow/{{device}}/debug/latchLog", "timeout": 300}
+      ]
+    },
+    {
+      "name": "3 Button toggles the light and beeps 0.5 s",
+      "steps": [
+        {"op": "publish", "topic": "microflow/{{device}}/inject/button", "payload": "1"},
+        {"op": "expect", "topic": "microflow/{{device}}/debug/toggleLog", "match": "equals", "value": "1", "timeout": 3000},
+        {"op": "expect", "topic": "microflow/{{device}}/debug/tpLog", "match": "equals", "value": "1", "timeout": 3000},
+        {"op": "publish", "topic": "microflow/{{device}}/inject/button", "payload": "0"},
+        {"op": "expect", "topic": "microflow/{{device}}/debug/tpLog", "match": "equals", "value": "0", "timeout": 2000},
+        {"op": "publish", "topic": "microflow/{{device}}/inject/button", "payload": "1"},
+        {"op": "expect", "topic": "microflow/{{device}}/debug/toggleLog", "match": "equals", "value": "0", "timeout": 3000},
+        {"op": "publish", "topic": "microflow/{{device}}/inject/button", "payload": "0"}
+      ]
+    },
+    {
+      "name": "4 On-delay: 1 only after the door is open 1 s",
+      "steps": [
+        {"op": "publish", "topic": "microflow/{{device}}/inject/door", "payload": "1"},
+        {"op": "expect-none", "topic": "microflow/{{device}}/debug/tonLog", "timeout": 700},
+        {"op": "expect", "topic": "microflow/{{device}}/debug/tonLog", "match": "equals", "value": "1", "timeout": 2000},
+        {"op": "publish", "topic": "microflow/{{device}}/inject/door", "payload": "0"},
+        {"op": "expect", "topic": "microflow/{{device}}/debug/tonLog", "match": "equals", "value": "0", "timeout": 3000}
+      ]
+    }
+  ]
+}

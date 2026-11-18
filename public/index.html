@@ -1,0 +1,653 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Microflow · Embedded flow studio</title>
+    <link rel="stylesheet" href="style.css" />
+    <link
+      rel="icon"
+      href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='6' fill='%23193d32'/%3E%3Ctext x='16' y='23' font-size='20' text-anchor='middle' fill='%23c3e7aa'%3E%CE%BC%3C/text%3E%3C/svg%3E"
+    />
+  </head>
+  <body>
+    <div id="splash" class="splash" role="dialog" aria-label="Welcome to Microflow">
+      <div class="splash-card">
+        <div class="splash-logo" aria-hidden="true">&mu;</div>
+        <h1>Microflow</h1>
+        <p class="splash-tag">Visual embedded flow studio for ESP8266 and ESP32</p>
+        <ul class="splash-steps">
+          <li><b>Design</b> your program as a flow of nodes</li>
+          <li><b>Compile</b> it to native Arduino C++ and upload</li>
+          <li><b>Debug</b> it live over MQTT, or simulate on this PC</li>
+        </ul>
+        <div class="splash-bar"><span></span></div>
+        <button id="splashSkip" type="button">Skip ›</button>
+      </div>
+    </div>
+    <aside class="rail">
+      <div class="brand">μ</div>
+      <button class="rail-active" title="Flow editor">⌘</button
+      ><button id="library" title="Saved flows">▤</button
+      ><button id="devices" title="Devices seen over MQTT">⌁</button
+      ><button id="deployments" title="Build and upload history">⧗</button
+      ><button
+        id="brokerBoard"
+        title="MQTT broker board: program an ESP32 as your local broker"
+      >
+        ⇄
+      </button>
+      <button id="settings" title="Settings: language (Node-RED or Arduino)">
+        ⚙
+      </button>
+      <div class="rail-bottom">MF</div>
+    </aside>
+    <div class="shell">
+      <header>
+        <div>
+          <strong>microflow<span class="brand-dot">.</span></strong
+          ><span class="divider">/</span><span>Embedded flow studio</span>
+        </div>
+        <button id="serialBadge" class="serial-badge" type="button">
+          <span class="serial-badge-dot"></span
+          ><span class="serial-badge-text">Not connected</span>
+        </button>
+        <div class="header-right">
+          <span class="local-dot"></span> LOCAL WORKSPACE
+          <span class="version">v2.0</span>
+        </div>
+      </header>
+      <div class="toolbar">
+        <div>
+          <span class="eyebrow">PROJECT</span
+          ><input
+            id="flowName"
+            value="Workspace monitor"
+            aria-label="Flow name"
+          /><span id="saveState">Unsaved changes</span
+          ><button
+            id="languageBadge"
+            class="language-badge"
+            title="Language of this flow (change in Settings ⚙)"
+          ></button>
+        </div>
+        <div class="actions">
+          <button id="import">Import</button><button id="export">Export</button
+          ><button id="save">Save</button
+          ><button id="history" title="Saved revisions of this flow">
+            History</button
+          ><button
+            id="linksButton"
+            title="Link: a table of all Radio in (inputs) and Radio out (outputs) of every chip, to connect them"
+          >
+            ⇄ Link</button
+          ><button id="tests" title="MQTT test cases for this flow">
+            Tests</button
+          ><button
+            id="deleteSelected"
+            class="danger"
+            title="Delete the selected node or link"
+            disabled
+          >
+            Delete selected</button
+          ><button id="compile" title="Compile only and report flash/RAM usage">
+            ✓ Compile</button
+          ><button class="primary" id="upload">↥ Upload to board</button>
+        </div>
+      </div>
+      <main>
+        <section class="palette">
+          <div class="palette-tabs" role="tablist">
+            <button
+              class="palette-tab"
+              data-tab="library"
+              role="tab"
+              aria-selected="true"
+            >
+              NODE LIBRARY <span id="paletteCount"></span></button
+            ><button
+              class="palette-tab"
+              data-tab="examples"
+              role="tab"
+              aria-selected="false"
+              title="Test flows for the selected board, and example flows"
+            >
+              EXAMPLES
+            </button>
+          </div>
+          <div id="libraryPane">
+          <input
+            id="paletteSearch"
+            class="palette-search"
+            type="search"
+            placeholder="Search nodes…  ( / )"
+            aria-label="Search the node library"
+            autocomplete="off"
+          />
+          <p class="muted">Click a node to add it to your flow.</p>
+          <div id="palette"></div>
+          </div>
+          <div id="examplesPane" hidden>
+            <p class="muted">
+              Click a test to open it for the selected board, then upload it
+              over USB.
+            </p>
+            <div id="boardTests"></div>
+            <div id="exampleFlows"></div>
+          </div>
+          <div class="tip">
+            <span>✦</span><strong>Small chip. Big ideas.</strong>
+            <p>Flows compile to lean Arduino sketches for ESP8266 and ESP32.</p>
+          </div>
+          <div class="palette-footer">JAVASCRIPT <span>+</span> SQLITE</div>
+        </section>
+        <section class="workspace">
+          <div id="panes">
+            <div id="slotA" class="slot active">
+              <div
+                id="chipTabs"
+                class="chip-bar"
+                role="tablist"
+                aria-label="Chips"
+              ></div>
+              <div class="canvas-bar">
+                <div id="flowTabs" class="flow-tabs" role="tablist"></div>
+                <span class="canvas-actions"
+                  ><button
+                    id="undo"
+                    disabled
+                    title="Undo the last Clear or delete (Ctrl+Z)"
+                  >
+                    ↶ Undo</button
+                  ><button
+                    id="clearConnections"
+                    title="Remove all nodes and connections on this tab (Ctrl+Z to undo)"
+                  >
+                    Clear
+                  </button></span
+                >
+              </div>
+              <div id="canvas">
+                <svg id="wires"></svg>
+                <div id="nodes"></div>
+                <div class="canvas-caption">
+                  FLOW CANVAS
+                  <span>Drag to arrange · Output → input to connect</span>
+                </div>
+              </div>
+            </div>
+            <div
+              id="splitGrip"
+              class="split-grip"
+              role="separator"
+              aria-orientation="horizontal"
+              aria-label="Drag to resize the two screens"
+              tabindex="0"
+              title="Drag to resize · double-click for half and half"
+              hidden
+            ></div>
+            <div id="slotB" class="slot" hidden>
+              <div id="pane2" class="pane2">
+                <div class="pane2-head" id="pane2Head"></div>
+                <div id="pane2Canvas" class="pane2-canvas"></div>
+              </div>
+            </div>
+          </div>
+          <div class="runtime">
+            <div>
+              <span id="connectionDot" class="status-dot"></span
+              ><strong id="runtimeStatus">Runtime idle</strong
+              ><span id="nodeCount"></span>
+            </div>
+            <div>
+              <select
+                id="runtimeMode"
+                aria-label="Runtime mode"
+                title="Where the flow runs during MQTT tests"
+              >
+                <option value="device">Real board (monitor)</option>
+                <option value="host">Simulate on this PC</option>
+                <option value="emulate">
+                  Real board + PC inputs (USB)
+                </option></select
+              ><button
+                id="splitToggle"
+                title="Show one flow screen, or two screens (upper and lower) to debug two chips"
+              >
+                ⬒ Split</button
+              ><button id="stop">■ Stop</button
+              ><button
+                id="simulate"
+                hidden
+                title="Run the flow on this PC; GPIO, display and timers are simulated"
+              >
+                ▶ Simulate</button
+              ><button
+                id="realSim"
+                hidden
+                title="Run the flow on the real board with inputs from this PC: checks the serial port and the board first"
+              >
+                ▶ Start Real Simulation</button
+              ><button
+                id="start"
+                class="test-button"
+                title="Start what the list on the left selects"
+              >
+                ▶ Simulate
+              </button>
+            </div>
+          </div>
+          <div id="simStale" class="sim-stale" role="status" hidden></div>
+          <div id="simPins" hidden></div>
+        </section>
+        <div
+          id="inspectorGrip"
+          class="inspector-grip"
+          role="separator"
+          aria-orientation="vertical"
+          aria-label="Drag to resize the right panel"
+          tabindex="0"
+          title="Drag to resize · double-click to reset"
+        ></div>
+        <aside class="inspector" id="inspector">
+          <div class="inspector-tabs">
+            <button class="selected" id="deviceTab">Device</button
+            ><button id="nodeTab">Node</button
+            ><button
+              id="consoleTab"
+              title="Debug console: simulation and upload messages"
+            >
+              Console</button
+            ><button
+              id="aiTab"
+              title="Ask Copilot or Gemini; right-click a node in the palette for a ready-made question"
+            >
+              Ask AI
+            </button>
+          </div>
+          <div id="devicePanel">
+            <div class="section-title">
+              TARGET DEVICE<span id="chipLabel"></span>
+            </div>
+            <label>Board<select id="board"></select></label>
+            <div class="chip-card">
+              <div class="chip">▦</div>
+              <div>
+                <strong id="chipName">ESP8266</strong
+                ><small id="chipFqbn">Compiled native firmware</small>
+              </div>
+              <span id="chipSpec">Pins ▸</span>
+            </div>
+            <div id="boardCheck" class="board-check" role="status"></div>
+            <div class="two">
+              <label
+                >Device ID<input
+                  id="deviceId"
+                  placeholder="auto (chip ID)"
+                  maxlength="32"
+              /></label>
+              <label class="check"
+                ><input id="telemetry" type="checkbox" checked />
+                Telemetry</label
+              >
+            </div>
+            <p class="muted">
+              Topics use microflow/&lt;Device ID&gt;/… Blank uses the chip ID on
+              boards and <b>sim</b> for the PC simulator.
+            </p>
+            <div class="two">
+              <label
+                >Build<select
+                  id="buildProfile"
+                  title="Debug keeps the IDE's debugging hooks; Release runs on its own"
+                >
+                  <option value="debug">Debug (IDE tools)</option>
+                  <option value="release">Release (standalone)</option>
+                </select></label
+              >
+              <label
+                class="check"
+                title="Allow later updates over MQTT or the LAN"
+                ><input id="ota" type="checkbox" checked /> Remote update</label
+              >
+            </div>
+            <label
+              class="check"
+              title="Debug builds only: the PC can set what input nodes read (runtime mode “Real board + PC inputs”); outputs and communication stay real"
+              ><input id="emulate" type="checkbox" /> PC input emulation
+              (USB)</label
+            >
+            <label
+              class="check"
+              title="Untick for a single chip that needs no network: WiFi and MQTT never start (no telemetry, MQTT tests or remote update; upload and the test terminal use USB). Radio, Web and PWA boxes need it ticked."
+              ><input id="netOn" type="checkbox" checked /> WiFi and MQTT
+              (untick for a single chip)</label
+            >
+            <label
+              class="check"
+              title="For testing on the bench: WiFi stays off (no MQTT, telemetry or remote update) and the board prints on USB serial (115200) the pin modes at start, every value each box handles, and the flow's pin levels every 2 s"
+              ><input id="usbTest" type="checkbox" /> USB test (WiFi off, status
+              on serial)</label
+            >
+            <label
+              >Serial port
+              <div class="inline">
+                <input id="serialPort" placeholder="COM3" /><button
+                  id="scan"
+                  title="Detect serial ports"
+                >
+                  ↻
+                </button>
+              </div></label
+            >
+            <div class="two">
+              <label
+                >Serial transport<select id="serialTransport">
+                  <option value="local">Local serial</option>
+                  <option value="browser">Web Serial</option>
+                </select></label
+              >
+              <label
+                >Baud rate<select id="baudRate">
+                  <option>9600</option>
+                  <option>19200</option>
+                  <option>38400</option>
+                  <option>57600</option>
+                  <option>74880</option>
+                  <option selected>115200</option>
+                  <option>230400</option>
+                  <option>460800</option>
+                  <option>921600</option>
+                </select></label
+              >
+            </div>
+            <button
+              id="baudAuto"
+              class="link"
+              type="button"
+              disabled
+              title="Try common baud rates and keep the one that gives readable text"
+            >
+              Auto-detect baud
+            </button>
+            <button id="serialConnect" class="full">Connect serial</button
+            ><button
+              id="verifyBoard"
+              class="full"
+              title="Check the board over USB (firmware build, WiFi, MQTT) and ping it through the broker"
+            >
+              ✓ Verify board
+            </button>
+            <p id="serialStatus" class="muted" role="status">
+              Serial disconnected
+            </p>
+            <form id="serialSendForm" class="inline">
+              <input
+                id="serialMessage"
+                aria-label="Serial message"
+                placeholder="Send a line to the board"
+              /><button id="serialSend" type="submit" disabled>Send</button>
+            </form>
+            <div id="chipCard" class="chip-status" hidden>
+              <div class="chip-status-head">
+                <b>CHIP STATUS</b>
+                <label class="check"
+                  ><input id="chipAuto" type="checkbox" checked /> Auto (2
+                  s)</label
+                >
+              </div>
+              <dl id="chipFields"></dl>
+              <p id="chipHint" class="muted" role="status"></p>
+              <div class="inline">
+                <button
+                  id="chipRefresh"
+                  type="button"
+                  title="Ask the firmware for its status (mf?)"
+                >
+                  ↻ Status</button
+                ><button
+                  id="chipReset"
+                  type="button"
+                  title="Pulse the reset line (RTS), like pressing RST"
+                >
+                  ⟲ Reset board
+                </button>
+              </div>
+            </div>
+            <div class="section-title spaced">WIFI NETWORK</div>
+            <div class="two">
+              <label
+                >Network name<input
+                  id="ssid"
+                  placeholder="Your WiFi SSID" /></label
+              ><label
+                >Password<input
+                  id="password"
+                  type="password"
+                  placeholder="WiFi password"
+              /></label>
+            </div>
+            <div class="wifi-saved">
+              <span id="wifiState" class="muted"></span
+              ><button id="forgetWifi" type="button">Forget WiFi</button>
+            </div>
+            <div class="section-title spaced">
+              MQTT CONNECTION<button
+                id="publicBroker"
+                class="link"
+                type="button"
+                title="Fill in test.mosquitto.org for both the PC and the board"
+              >
+                Use public test broker
+              </button>
+            </div>
+            <label
+              >Broker URL<input id="brokerUrl" value="mqtt://127.0.0.1:1883"
+            /></label>
+            <button
+              id="brokerTest"
+              class="full"
+              type="button"
+              title="Publish to a private topic and receive it back: tests the broker without the board"
+            >
+              ⇄ Test broker (loopback)
+            </button>
+            <div class="two">
+              <label
+                >Username<input id="username" placeholder="Optional" /></label
+              ><label
+                >Password<input
+                  id="mqttPassword"
+                  type="password"
+                  placeholder="Optional"
+              /></label>
+            </div>
+            <p class="muted">
+              Host tests support TLS. Firmware uses plain MQTT and needs a
+              broker address reachable from your board.
+            </p>
+            <div class="two">
+              <label
+                >Firmware broker host<input
+                  id="host"
+                  placeholder="192.168.1.10" /></label
+              ><label
+                >Firmware broker port<input
+                  id="mqttPort"
+                  value="1883"
+                  type="number"
+              /></label>
+            </div>
+            <button id="source" class="full">⌘ Preview firmware</button>
+          </div>
+          <div id="aiPanel" hidden>
+            <div class="section-title">ASK AI</div>
+            <div id="aiArea"></div>
+          </div>
+          <div id="consolePanel" class="console" hidden>
+            <div class="console-head">
+              <span
+                class="console-modes"
+                role="group"
+                aria-label="Show messages from"
+                ><button
+                  id="modeSim"
+                  data-mode="sim"
+                  aria-pressed="true"
+                  title="Simulation, MQTT tests and the board's messages"
+                >
+                  Simulation</button
+                ><button
+                  id="modeUpload"
+                  data-mode="upload"
+                  aria-pressed="false"
+                  title="Compile, upload and board checks"
+                >
+                  Upload</button
+                ><button
+                  id="modeAll"
+                  data-mode="all"
+                  aria-pressed="false"
+                  title="Everything"
+                >
+                  All
+                </button></span
+              ><span id="consoleState" class="tag">LIVE</span
+              ><button id="pauseLog" aria-pressed="false">Pause</button
+              ><button id="clearLog">Clear</button
+              ><button
+                id="logSplit"
+                aria-pressed="false"
+                title="Two monitors, upper and lower: one chip each"
+              >
+                ⬒ 2 chips</button
+              ><button
+                id="termToggle"
+                aria-pressed="false"
+                title="Command line to test the chip over USB or MQTT"
+              >
+                ⌨ Terminal
+              </button>
+            </div>
+            <div id="serialMon" class="serial-mon" hidden>
+              <div class="mon-bar">
+                <strong>Serial monitor</strong>
+                <label title="Serial speed; Microflow firmware uses 115200"
+                  >Baud<select id="monBaud">
+                    <option>9600</option>
+                    <option>19200</option>
+                    <option>38400</option>
+                    <option>57600</option>
+                    <option>74880</option>
+                    <option selected>115200</option>
+                    <option>230400</option>
+                    <option>460800</option>
+                    <option>921600</option>
+                  </select></label
+                ><button
+                  id="monStart"
+                  class="primary"
+                  title="Open the serial port chosen in the Device panel"
+                >
+                  ▶ Start</button
+                ><button id="monStop" title="Close the serial port">
+                  ■ Stop</button
+                ><button id="monClear">Clear</button
+                ><span id="monState" class="mon-state"></span>
+              </div>
+              <div id="monOut" class="mon-out" role="log" aria-live="polite"></div>
+              <form id="monForm" class="term-input" autocomplete="off">
+                <input
+                  id="monLine"
+                  aria-label="Text to send to the board"
+                  placeholder="Send a line to the board"
+                /><button id="monSend" type="submit">Send</button>
+              </form>
+            </div>
+            <div id="logArea" class="log-area">
+              <div id="logHeadA" class="log-head" hidden></div>
+              <div id="log" class="log-box">
+                <div class="log-welcome">
+                  Ready when you are. Start an MQTT test or upload your flow.
+                </div>
+              </div>
+              <div
+                id="logGrip"
+                class="split-grip"
+                role="separator"
+                aria-orientation="horizontal"
+                aria-label="Drag to resize the two monitors"
+                tabindex="0"
+                title="Drag to resize · double-click for half and half"
+                hidden
+              ></div>
+              <div id="logHeadB" class="log-head" hidden></div>
+              <div id="log2" class="log-box" hidden></div>
+            </div>
+            <div id="terminal" hidden>
+              <div id="termOut" role="log" aria-live="polite"></div>
+              <form id="termForm" class="term-input" autocomplete="off">
+                <select id="termVia" aria-label="Send commands via">
+                  <option value="usb">via USB serial</option>
+                  <option value="mqtt">via MQTT</option></select
+                ><input
+                  id="termLine"
+                  aria-label="Terminal command"
+                  placeholder="help · status · gpio read 4 · adc · send <node> <payload>"
+                /><button type="submit">Send</button>
+              </form>
+              <div id="termQuick" class="term-quick"></div>
+              <div id="termInfo" class="term-info"></div>
+            </div>
+          </div>
+          <div id="nodePanel" hidden>
+            <div class="section-title">NODE PROPERTIES</div>
+            <div id="properties">
+              <p class="muted">Select a node on the canvas to configure it.</p>
+            </div>
+          </div>
+        </aside>
+      </main>
+      <footer>
+        <span><i class="local-dot"></i> SQLite persistence</span
+        ><span>Designed for the edge <b>↗</b></span>
+      </footer>
+    </div>
+    <dialog id="modal">
+      <div class="modal-head">
+        <strong id="modalTitle"></strong><button id="closeModal">✕</button>
+      </div>
+      <div id="modalContent"></div>
+    </dialog>
+    <input type="file" id="fileInput" accept="application/json" hidden />
+    <div id="toast" role="status"></div>
+    <script src="splash.js"></script>
+    <script src="api.js"></script>
+    <script src="guest.js"></script>
+    <script src="serial.js"></script>
+    <script src="webflash.js"></script>
+    <script src="chipstatus.js"></script>
+    <script src="emulate.js"></script>
+    <script src="app.js"></script>
+    <script src="panels.js"></script>
+    <script src="serialmon.js"></script>
+    <script src="brokerboard.js"></script>
+    <script src="splitview.js"></script>
+    <script src="consolesplit.js"></script>
+    <script src="runcheck.js"></script>
+    <script src="linktable.js"></script>
+    <script src="speech.js"></script>
+    <script src="custom.js"></script>
+    <script src="palettesearch.js"></script>
+    <script src="nodehelp.js"></script>
+    <script src="servoview.js"></script>
+    <script src="statusview.js"></script>
+    <script src="vendor/qrcode.js"></script>
+    <script src="pwa.js"></script>
+    <script src="askai.js"></script>
+    <script src="boardview.js"></script>
+    <script src="examples.js"></script>
+    <script src="account.js"></script>
+    <script src="autostart.js"></script>
+  </body>
+</html>
